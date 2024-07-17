@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/Users/craig/Code/game_jam/_deps/cute-subbuild/CMakeFiles/cute-populate"
+		},
+		{
+			"file" : "/Users/craig/Code/game_jam/_deps/cute-subbuild/CMakeFiles/cute-populate.rule"
+		},
+		{
+			"file" : "/Users/craig/Code/game_jam/_deps/cute-subbuild/CMakeFiles/cute-populate-complete.rule"
+		},
+		{
+			"file" : "/Users/craig/Code/game_jam/_deps/cute-subbuild/cute-populate-prefix/src/cute-populate-stamp/cute-populate-build.rule"
+		},
+		{
+			"file" : "/Users/craig/Code/game_jam/_deps/cute-subbuild/cute-populate-prefix/src/cute-populate-stamp/cute-populate-configure.rule"
+		},
+		{
+			"file" : "/Users/craig/Code/game_jam/_deps/cute-subbuild/cute-populate-prefix/src/cute-populate-stamp/cute-populate-download.rule"
+		},
+		{
+			"file" : "/Users/craig/Code/game_jam/_deps/cute-subbuild/cute-populate-prefix/src/cute-populate-stamp/cute-populate-install.rule"
+		},
+		{
+			"file" : "/Users/craig/Code/game_jam/_deps/cute-subbuild/cute-populate-prefix/src/cute-populate-stamp/cute-populate-mkdir.rule"
+		},
+		{
+			"file" : "/Users/craig/Code/game_jam/_deps/cute-subbuild/cute-populate-prefix/src/cute-populate-stamp/cute-populate-patch.rule"
+		},
+		{
+			"file" : "/Users/craig/Code/game_jam/_deps/cute-subbuild/cute-populate-prefix/src/cute-populate-stamp/cute-populate-test.rule"
+		},
+		{
+			"file" : "/Users/craig/Code/game_jam/_deps/cute-subbuild/cute-populate-prefix/src/cute-populate-stamp/cute-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"cute-populate"
+		],
+		"name" : "cute-populate"
+	}
+}
