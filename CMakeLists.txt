@@ -13,7 +13,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Link your project against CF statically, rather than as a shared library.
 set(CUTE_FRAMEWORK_STATIC ON)
-
+set(CF_FRAMEWORK_BUILD_SAMPLES OFF)
+set(CF_FRAMEWORK_BUILD_TESTS OFF)
+    
 # This will download and build Cute Framework just once the first time you build your game.
 include(FetchContent)
 FetchContent_Declare(
