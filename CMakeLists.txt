@@ -15,7 +15,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CUTE_FRAMEWORK_STATIC ON)
 set(CF_FRAMEWORK_BUILD_SAMPLES OFF)
 set(CF_FRAMEWORK_BUILD_TESTS OFF)
-    
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # This will download and build Cute Framework just once the first time you build your game.
 include(FetchContent)
 FetchContent_Declare(
