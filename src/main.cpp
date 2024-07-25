@@ -1,5 +1,6 @@
 #include "main.h"
 
+#include "cute_math.h"
 #include "debug_draw.cpp"
 
 using namespace Cute;
@@ -9,10 +10,10 @@ GameState gameState;
 SoftBody makeSoftBody() {
 	SoftBody body = {};
 
-  body.points[0].position = cf_v2(-10, -10);
-	body.points[1].position = cf_v2(-10, 10);
+  body.points[0].position = cf_v2(-3, -5);
+	body.points[1].position = cf_v2(-5, 7);
 	body.points[2].position = cf_v2(10, 10);
-	body.points[3].position = cf_v2(10, -10);
+	body.points[3].position = cf_v2(5, -7);
 
   for (int i = 0; i < 4; i++) {
     body.anchorVertex[i] = body.points[i].position;
@@ -46,8 +47,19 @@ void update(float dt) {
   // constraints
   // F = -kx * dt
   // add F to velocity
+  float a = 0.f;
+  float b = 0.f;
   for (int i = 0; i < 4; i++) {
-    v2 targetVertex = com + body1->anchorVertex[i];
+    v2 r = body1->anchorVertex[i] - com;
+    a += dot(r, body1->anchorVertex[i]);
+    b += cross(r, body1->anchorVertex[i]);
+  }
+  float angle = -atan2(b, a);
+
+  for (int i = 0; i < 4; i++) {
+    SinCos rotation = sincos(angle);
+    v2 rotatedAnchor = mul(rotation, body1->anchorVertex[i]);
+    v2 targetVertex = com + rotatedAnchor;
     v2 x = targetVertex - body1->points[i].position;
     body1->points[i].velocity += x * gameState.k_springForce  * dt;
   }
