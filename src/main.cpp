@@ -10,11 +10,16 @@ GameState gameState;
 SoftBody makeSoftBody() {
 	SoftBody body = {};
 
+  /*
+  body.points[0].position = cf_v2(-10, -10);
+	body.points[1].position = cf_v2(-10, 10);
+	body.points[2].position = cf_v2(10, 10);
+	body.points[3].position = cf_v2(10, -10);
+  */
   body.points[0].position = cf_v2(-3, -5);
 	body.points[1].position = cf_v2(-5, 7);
 	body.points[2].position = cf_v2(10, 10);
 	body.points[3].position = cf_v2(5, -7);
-
   for (int i = 0; i < 4; i++) {
     body.anchorVertex[i] = body.points[i].position;
   }
@@ -52,7 +57,7 @@ void update(float dt) {
   // gravity integration
   for(int i = 0; i < 4; i++) {
 		Point *p = &body1->points[i];
-		p->velocity.y += -40.0f * dt;
+		p->velocity.y += -100.0f * dt;
 		p->position += p->velocity * dt;
 	}
 
@@ -72,7 +77,7 @@ void update(float dt) {
     v2 rotatedAnchor = mul(rotation, body1->anchorVertex[i]);
     v2 targetVertex = com + rotatedAnchor;
     v2 x = targetVertex - body1->points[i].position;
-    body1->points[i].velocity += x * gameState.k_springForce  * dt;
+    body1->points[i].velocity += x * gameState.k_springForce  * dt * gameState.spring_damping;
   }
 }
 
@@ -94,17 +99,24 @@ void drawSoftBody(SoftBody *body) {
 	v2 com = calcSoftBodyCenterOfMass(body);
 	float angle = calcSoftBodyRotationAngle(body, com);
 
-	if (!gameState.debug_drawTargetShape){return;}
+	if (gameState.debug_drawTargetShape){
+    draw_push_color(cf_color_green());
+    for (int i = 0; i < 4; i++) {
+      SinCos rotation = sincos(angle);
+      v2 rotatedAnchor = mul(rotation, body->anchorVertex[i]);
+      v2 targetVertex = com + rotatedAnchor;
 
-	draw_push_color(cf_color_green());
-	for (int i = 0; i < 4; i++) {
-		SinCos rotation = sincos(angle);
-		v2 rotatedAnchor = mul(rotation, body->anchorVertex[i]);
-		v2 targetVertex = com + rotatedAnchor;
+      cf_draw_circle2(targetVertex, RADIUS, 1.0f);
+    }
+    draw_pop_color();
+  }
 
-		cf_draw_circle2(targetVertex, RADIUS, 1.0f);
-	}
-	draw_pop_color();
+  if (gameState.debug_drawCenterOfMass) {
+    draw_push_color(cf_color_purple());
+    v2 com = calcSoftBodyCenterOfMass(body);
+    cf_draw_circle2(com, RADIUS, 1.0f);
+  }
+
 }
 
 void main_loop(void *udata)
@@ -123,6 +135,7 @@ int main(int argc, char* argv[])
 
 	gameState.body1 = makeSoftBody();
 	gameState.k_springForce = 100.0f;
+  gameState.spring_damping = 1.0f;
 	while (app_is_running())
 	{
 		app_update(&main_loop);
