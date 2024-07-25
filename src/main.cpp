@@ -22,6 +22,30 @@ SoftBody makeSoftBody() {
   return body;
 }
 
+inline v2 calcSoftBodyCenterOfMass(SoftBody *body)
+{
+	v2 com = {};
+	for(int i = 0; i < 4; i++) {
+		com += body->points[i].position;
+	}
+	com = com / 4;
+	return com;
+}
+
+inline float calcSoftBodyRotationAngle(SoftBody *body, v2 centerOfMass) {
+	// F = -kx * dt
+	// add F to velocity
+	float a = 0.f;
+	float b = 0.f;
+	for (int i = 0; i < 4; i++) {
+		v2 r = body->anchorVertex[i] - centerOfMass;
+		a += dot(r, body->anchorVertex[i]);
+		b += cross(r, body->anchorVertex[i]);
+	}
+	float angle = -atan2(b, a);
+	return angle;
+}
+
 void update(float dt) {
 	SoftBody *body1 = &gameState.body1;
 
@@ -38,23 +62,10 @@ void update(float dt) {
 		if (p->position.y < -240.f) { p->position.y = -240.f; }
 	}
 
-  v2 com = {};
-  for(int i = 0; i < 4; i++) {
-   com += body1->points[i].position;
-  }
-  com = com / 4;
 
-  // constraints
-  // F = -kx * dt
-  // add F to velocity
-  float a = 0.f;
-  float b = 0.f;
-  for (int i = 0; i < 4; i++) {
-    v2 r = body1->anchorVertex[i] - com;
-    a += dot(r, body1->anchorVertex[i]);
-    b += cross(r, body1->anchorVertex[i]);
-  }
-  float angle = -atan2(b, a);
+	// constraints
+	v2 com = calcSoftBodyCenterOfMass(body1);
+	float angle = calcSoftBodyRotationAngle(body1, com);
 
   for (int i = 0; i < 4; i++) {
     SinCos rotation = sincos(angle);
@@ -66,16 +77,39 @@ void update(float dt) {
 }
 
 void drawSoftBody(SoftBody *body) {
+
 	Point *arr = body->points;
 	cf_draw_line(arr[0].position, arr[1].position, .5f);
 	cf_draw_line(arr[1].position, arr[2].position, .5f);
 	cf_draw_line(arr[2].position, arr[3].position, .5f);
 	cf_draw_line(arr[3].position, arr[0].position, .5f);
 
+	draw_push_color(cf_color_red());
 	for (int i = 0; i < 4; i++) {
 		Point *p = &body->points[i];
 		cf_draw_circle2(p->position, RADIUS, 1.0f);
 	}
+	draw_pop_color();
+
+	v2 com = calcSoftBodyCenterOfMass(body);
+	float angle = calcSoftBodyRotationAngle(body, com);
+
+	if (!gameState.debug_drawTargetShape){return;}
+
+	draw_push_color(cf_color_green());
+	for (int i = 0; i < 4; i++) {
+		SinCos rotation = sincos(angle);
+		v2 rotatedAnchor = mul(rotation, body->anchorVertex[i]);
+		v2 targetVertex = com + rotatedAnchor;
+
+		cf_draw_circle2(targetVertex, RADIUS, 1.0f);
+	}
+	draw_pop_color();
+}
+
+void main_loop(void *udata)
+{
+	update(CF_DELTA_TIME_FIXED);
 }
 
 int main(int argc, char* argv[])
@@ -85,14 +119,14 @@ int main(int argc, char* argv[])
 	Result result = make_app("Fancy Window Title", 0, 0, 0, 640, 480, options, argv[0]);
 	if (is_error(result)) return -1;
 	cf_app_init_imgui(false);
+	cf_set_fixed_timestep(60);
 
 	gameState.body1 = makeSoftBody();
 	gameState.k_springForce = 100.0f;
 	while (app_is_running())
 	{
-		app_update();
+		app_update(&main_loop);
 		// All your game logic and updates go here...
-		update(CF_DELTA_TIME);
 		drawSoftBody(&gameState.body1);
 		drawImgui(&gameState);
 

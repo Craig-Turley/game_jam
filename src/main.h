@@ -19,4 +19,5 @@ struct GameState
 {
 	SoftBody body1;
 	float k_springForce;
+	bool debug_drawTargetShape;
 };
