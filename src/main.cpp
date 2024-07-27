@@ -76,8 +76,8 @@ void update(float dt) {
     SinCos rotation = sincos(angle);
     v2 rotatedAnchor = mul(rotation, body1->anchorVertex[i]);
     v2 targetVertex = com + rotatedAnchor;
-    v2 x = targetVertex - body1->points[i].position;
-    body1->points[i].velocity += x * gameState.k_springForce  * dt * gameState.spring_damping;
+    v2 x = targetVertex - (com + body1->points[i].position);
+    body1->points[i].velocity += x * gameState.k_springForce  * dt;
   }
 }
 
