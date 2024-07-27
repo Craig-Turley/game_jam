@@ -26,9 +26,15 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cute)
 
 # Source code for your game.
+file(GLOB mygame_src
+	"src/*.h"
+	"src/*.c"
+	"src/*.cpp"
+)
+
 add_executable(
 	mygame
-	src/main.cpp
+	${mygame_src}
 )
 
 # Our source code will be in the `src` folder.
