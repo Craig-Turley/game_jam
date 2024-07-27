@@ -43,7 +43,7 @@ inline float calcSoftBodyRotationAngle(SoftBody *body, v2 centerOfMass) {
 	float a = 0.f;
 	float b = 0.f;
 	for (int i = 0; i < 4; i++) {
-		v2 r = body->anchorVertex[i] - centerOfMass;
+		v2 r = body->points[i].position - centerOfMass;
 		a += dot(r, body->anchorVertex[i]);
 		b += cross(r, body->anchorVertex[i]);
 	}
