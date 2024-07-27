@@ -1,7 +1,7 @@
 #include "main.h"
+#include "debug_draw.h"
 
 #include "cute_math.h"
-#include "debug_draw.cpp"
 
 using namespace Cute;
 
@@ -10,16 +10,18 @@ GameState gameState;
 SoftBody makeSoftBody() {
 	SoftBody body = {};
 
-  /*
-  body.points[0].position = cf_v2(-10, -10);
+#if 1
+  body.points[0].position = cf_v2(-10, -20);
 	body.points[1].position = cf_v2(-10, 10);
 	body.points[2].position = cf_v2(10, 10);
 	body.points[3].position = cf_v2(10, -10);
-  */
+#else
   body.points[0].position = cf_v2(-3, -5);
 	body.points[1].position = cf_v2(-5, 7);
 	body.points[2].position = cf_v2(10, 10);
 	body.points[3].position = cf_v2(5, -7);
+#endif
+
   for (int i = 0; i < 4; i++) {
     body.anchorVertex[i] = body.points[i].position;
   }
@@ -57,8 +59,10 @@ void update(float dt) {
   // gravity integration
   for(int i = 0; i < 4; i++) {
 		Point *p = &body1->points[i];
-		p->velocity.y += -100.0f * dt;
+		p->velocity += gameState.gravity  * dt;
 		p->position += p->velocity * dt;
+		
+		p->velocity *= expf(gameState.spring_damping * dt);
 	}
 
   // collision
@@ -135,7 +139,10 @@ int main(int argc, char* argv[])
 
 	gameState.body1 = makeSoftBody();
 	gameState.k_springForce = 100.0f;
-  gameState.spring_damping = 1.0f;
+  gameState.spring_damping = 0.8f;
+  gameState.gravity = V2(0, -100.f);
+  gameState.debug_drawTargetShape = true;
+  gameState.debug_drawCenterOfMass = true;
 	while (app_is_running())
 	{
 		app_update(&main_loop);
