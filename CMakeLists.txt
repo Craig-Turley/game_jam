@@ -26,7 +26,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cute)
 
 # Source code for your game.
-file(GLOB mygame_src
+file(GLOB mygame_src CONFIGURE_DEPENDS
 	"src/*.h"
 	"src/*.c"
 	"src/*.cpp"
