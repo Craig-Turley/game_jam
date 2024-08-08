@@ -138,11 +138,13 @@ int main(int argc, char* argv[])
 	cf_set_fixed_timestep(60);
 
 	gameState.body1 = makeSoftBody();
-	gameState.k_springForce = 100.0f;
+	gameState.k_springForce = 10.f;
   gameState.spring_damping = 0.8f;
   gameState.gravity = V2(0, -100.f);
   gameState.debug_drawTargetShape = true;
   gameState.debug_drawCenterOfMass = true;
+
+  CF_ASSERT(gameState.k_springForce * CF_DELTA_TIME_FIXED * CF_DELTA_TIME_FIXED < 1.f);
 	while (app_is_running())
 	{
 		app_update(&main_loop);
