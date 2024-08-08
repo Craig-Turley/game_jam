@@ -32,5 +32,13 @@ void drawImgui(GameState *state)
       std::sprintf(title, "Anchor Dist %d", i);
       ImGui::LabelText(title, "%.3f %.3f", state->body1.points[i].last_anchor_dist.x, state->body1.points[i].last_anchor_dist.y);
     }
+    for(int i = 0; i < 4; i++){
+      char title[32];
+      std::sprintf(title, "Target %d", i);
+      ImGui::LabelText(title, "%.3f %.3f", state->body1.points[i].target_point.x, state->body1.points[i].target_point.y);
+    }
+    char com[4];
+    std::sprintf(com, "com");
+    ImGui::LabelText(com, "%.3f %.3f", state->body1.com.x, state->body1.com.y);
     ImGui::End();
 }

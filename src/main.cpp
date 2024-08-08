@@ -2,6 +2,7 @@
 #include "debug_draw.h"
 
 #include "cute_math.h"
+#include <iostream>
 
 using namespace Cute;
 
@@ -65,8 +66,9 @@ void update(float dt) {
     p->velocity += gameState.gravity  * dt;
 		p->position += p->velocity * dt;
 
-		p->velocity *= expf(-gameState.spring_damping * dt);
-    p->last_damping = exp(-gameState.spring_damping * dt);
+    float damping = expf(-gameState.spring_damping * dt);
+		p->velocity *= damping;
+    p->last_damping = damping;
   }
 
   // collision
@@ -75,16 +77,19 @@ void update(float dt) {
 		if (p->position.y < -240.f) { p->position.y = -240.f; }
 	}
 
-
 	// constraints
 	v2 com = calcSoftBodyCenterOfMass(body1);
 	float angle = calcSoftBodyRotationAngle(body1, com);
+
+  body1->com = com;
 
   for (int i = 0; i < 4; i++) {
     SinCos rotation = sincos(angle);
     v2 rotatedAnchor = mul(rotation, body1->anchorVertex[i]);
     v2 targetVertex = com + rotatedAnchor;
     v2 x = targetVertex - (com + body1->points[i].position);
+
+    body1->points[i].target_point = x;
 
     body1->points[i].last_anchor_dist = x;
     body1->points[i].velocity += x * gameState.k_springForce  * dt;

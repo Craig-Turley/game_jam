@@ -13,11 +13,13 @@ struct Point {
   Cute::v2 last_velocity;
   Cute::v2 last_position;
   Cute::v2 last_anchor_dist;
+  Cute::v2 target_point;
 };
 
 struct SoftBody {
 	Cute::v2 anchorVertex[4];
 	Point points[4];
+  Cute::v2 com;
 };
 
 struct GameState
