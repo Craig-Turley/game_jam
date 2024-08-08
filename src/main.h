@@ -9,6 +9,10 @@ const float RADIUS = 1.0f;
 struct Point {
 	Cute::v2 position;
 	Cute::v2 velocity;
+  float last_damping;
+  Cute::v2 last_velocity;
+  Cute::v2 last_position;
+  Cute::v2 last_anchor_dist;
 };
 
 struct SoftBody {
@@ -25,3 +29,5 @@ struct GameState
   bool debug_drawTargetShape;
   bool debug_drawCenterOfMass;
 };
+
+float calcSoftBodyRotationAngle(SoftBody *body, Cute::v2 centerOfMass);
