@@ -39,7 +39,7 @@ inline v2 calcSoftBodyCenterOfMass(SoftBody *body)
 	return com;
 }
 
-inline float calcSoftBodyRotationAngle(SoftBody *body, v2 centerOfMass) {
+float calcSoftBodyRotationAngle(SoftBody *body, v2 centerOfMass) {
 	// F = -kx * dt
 	// add F to velocity
 	float a = 0.f;
@@ -59,11 +59,15 @@ void update(float dt) {
   // gravity integration
   for(int i = 0; i < 4; i++) {
 		Point *p = &body1->points[i];
-		p->velocity += gameState.gravity  * dt;
+    p->last_velocity = p->velocity;
+    p->last_position = p->position;
+
+    p->velocity += gameState.gravity  * dt;
 		p->position += p->velocity * dt;
-		
+
 		p->velocity *= expf(-gameState.spring_damping * dt);
-	}
+    p->last_damping = exp(-gameState.spring_damping * dt);
+  }
 
   // collision
 	for(int i = 0; i < 4; i++) {
@@ -81,6 +85,8 @@ void update(float dt) {
     v2 rotatedAnchor = mul(rotation, body1->anchorVertex[i]);
     v2 targetVertex = com + rotatedAnchor;
     v2 x = targetVertex - (com + body1->points[i].position);
+
+    body1->points[i].last_anchor_dist = x;
     body1->points[i].velocity += x * gameState.k_springForce  * dt;
   }
 }
