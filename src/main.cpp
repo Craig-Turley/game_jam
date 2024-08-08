@@ -62,7 +62,7 @@ void update(float dt) {
 		p->velocity += gameState.gravity  * dt;
 		p->position += p->velocity * dt;
 		
-		p->velocity *= expf(gameState.spring_damping * dt);
+		p->velocity *= expf(-gameState.spring_damping * dt);
 	}
 
   // collision
