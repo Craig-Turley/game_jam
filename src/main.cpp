@@ -36,7 +36,7 @@ inline v2 calcSoftBodyCenterOfMass(SoftBody *body)
 	for(int i = 0; i < 4; i++) {
 		com += body->points[i].position;
 	}
-	com = com / 4;
+	com = com / 4.f;
 	return com;
 }
 
@@ -54,6 +54,14 @@ float calcSoftBodyRotationAngle(SoftBody *body, v2 centerOfMass) {
 	return angle;
 }
 
+v2 rotate(v2 *anchorVertex, float angle){
+    SinCos rotation = sincos(angle);
+    v2 rotatedAnchor = mul(rotation, *anchorVertex);
+    return rotatedAnchor;
+}
+
+v2 testPoint = V2(-100, 20);
+v2 testPointCom = V2(-100, 0);
 void update(float dt) {
 	SoftBody *body1 = &gameState.body1;
 
@@ -67,6 +75,7 @@ void update(float dt) {
 		p->position += p->velocity * dt;
 
     float damping = expf(-gameState.spring_damping * dt);
+
 		p->velocity *= damping;
     p->last_damping = damping;
   }
@@ -75,21 +84,30 @@ void update(float dt) {
 	for(int i = 0; i < 4; i++) {
 		Point *p = &body1->points[i];
 		if (p->position.y < -240.f) { p->position.y = -240.f; }
-	}
+	  if (p->position.x < -320.f) { p->position.x = -240.f; }
+  }
+
+  v2 anchor = V2(testPoint.x, testPoint.y * -1);
+	float a = 0.f;
+	float b = 0.f;
+  v2 r = testPoint - testPointCom;
+  a += dot(r, anchor);
+  b += cross(r, anchor);
+	float testAngle = -atan2(b, a);
+  v2 targetVertex = testPointCom + rotate(&anchor, testAngle);
+  testPoint = targetVertex;
+
+  std::cout << targetVertex.y << std::endl;
 
 	// constraints
 	v2 com = calcSoftBodyCenterOfMass(body1);
 	float angle = calcSoftBodyRotationAngle(body1, com);
 
-  body1->com = com;
-
   for (int i = 0; i < 4; i++) {
-    SinCos rotation = sincos(angle);
-    v2 rotatedAnchor = mul(rotation, body1->anchorVertex[i]);
-    v2 targetVertex = com + rotatedAnchor;
-    v2 x = targetVertex - (com + body1->points[i].position);
+    v2 targetVertex = com + rotate(&body1->anchorVertex[i], angle);
+    v2 x = targetVertex - body1->points[i].position;
 
-    body1->points[i].target_point = x;
+    body1->points[i].target_point = targetVertex;
 
     body1->points[i].last_anchor_dist = x;
     body1->points[i].velocity += x * gameState.k_springForce  * dt;
@@ -110,6 +128,12 @@ void drawSoftBody(SoftBody *body) {
 		cf_draw_circle2(p->position, RADIUS, 1.0f);
 	}
 	draw_pop_color();
+
+  draw_push_color(cf_color_green());
+  cf_draw_circle2(testPointCom, RADIUS, 1.0f);
+  draw_pop_color();
+  draw_push_color(cf_color_red());
+  cf_draw_circle2(testPoint, RADIUS, 1.0f);
 
 	v2 com = calcSoftBodyCenterOfMass(body);
 	float angle = calcSoftBodyRotationAngle(body, com);
@@ -132,6 +156,17 @@ void drawSoftBody(SoftBody *body) {
     cf_draw_circle2(com, RADIUS, 1.0f);
   }
 
+  if (gameState.debug_drawTargetPointVector) {
+    draw_push_color(cf_color_orange());
+    for (int i = 0; i < 4; i++) {
+      draw_push_color(cf_color_magenta());
+      cf_draw_circle2(arr[i].position, RADIUS, 1.f);
+      cf_draw_circle2(arr[i].target_point, RADIUS, 1.f);
+      draw_pop_color();
+      cf_draw_line(arr[i].position, arr[i].target_point, .5f);
+    }
+  }
+
 }
 
 void main_loop(void *udata)
@@ -149,9 +184,9 @@ int main(int argc, char* argv[])
 	cf_set_fixed_timestep(60);
 
 	gameState.body1 = makeSoftBody();
-	gameState.k_springForce = 10.f;
-  gameState.spring_damping = 0.8f;
-  gameState.gravity = V2(0, -100.f);
+	gameState.k_springForce = 100.f;
+  gameState.spring_damping = 10.f;
+  gameState.gravity = V2(0, -9.8f);
   gameState.debug_drawTargetShape = true;
   gameState.debug_drawCenterOfMass = true;
 

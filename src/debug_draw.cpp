@@ -12,6 +12,7 @@ void drawImgui(GameState *state)
     ImGui::DragFloat2("gravity", (float*)&state->gravity, 1.0f, -500.0f, 500.0f);
     ImGui::Checkbox("draw target shape", &state->debug_drawTargetShape);
     ImGui::Checkbox("draw center of mass", &state->debug_drawCenterOfMass);
+    ImGui::Checkbox("draw target point vector", &state->debug_drawTargetPointVector);
     for(int i = 0; i < 4; i++){
       char title[32];
       std::sprintf(title, "Position %d", i);

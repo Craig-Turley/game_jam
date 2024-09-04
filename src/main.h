@@ -30,6 +30,7 @@ struct GameState
 	Cute::v2 gravity;
   bool debug_drawTargetShape;
   bool debug_drawCenterOfMass;
+  bool debug_drawTargetPointVector;
 };
 
 float calcSoftBodyRotationAngle(SoftBody *body, Cute::v2 centerOfMass);
