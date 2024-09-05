@@ -2,9 +2,7 @@
 
 #include <cute.h>
 
-
 const float RADIUS = 1.0f;
-
 
 struct Point {
 	Cute::v2 position;

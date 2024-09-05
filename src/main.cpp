@@ -1,4 +1,5 @@
 #include "main.h"
+#include "cute_app.h"
 #include "debug_draw.h"
 
 #include "cute_math.h"
@@ -87,6 +88,8 @@ void update(float dt) {
 	  if (p->position.x < -320.f) { p->position.x = -240.f; }
   }
 
+  // test point
+  /*
   v2 anchor = V2(testPoint.x, testPoint.y * -1);
 	float a = 0.f;
 	float b = 0.f;
@@ -96,8 +99,8 @@ void update(float dt) {
 	float testAngle = -atan2(b, a);
   v2 targetVertex = testPointCom + rotate(&anchor, testAngle);
   testPoint = targetVertex;
-
   std::cout << targetVertex.y << std::endl;
+*/
 
 	// constraints
 	v2 com = calcSoftBodyCenterOfMass(body1);
@@ -129,11 +132,14 @@ void drawSoftBody(SoftBody *body) {
 	}
 	draw_pop_color();
 
+  // draw test point
+  /*
   draw_push_color(cf_color_green());
   cf_draw_circle2(testPointCom, RADIUS, 1.0f);
   draw_pop_color();
   draw_push_color(cf_color_red());
   cf_draw_circle2(testPoint, RADIUS, 1.0f);
+  */
 
 	v2 com = calcSoftBodyCenterOfMass(body);
 	float angle = calcSoftBodyRotationAngle(body, com);
@@ -177,10 +183,10 @@ void main_loop(void *udata)
 int main(int argc, char* argv[])
 {
 	// Create a window with a resolution of 640 x 480.
-	int options = APP_OPTIONS_DEFAULT_GFX_CONTEXT | APP_OPTIONS_WINDOW_POS_CENTERED;
+	int options = APP_OPTIONS_WINDOW_POS_CENTERED_BIT;
 	Result result = make_app("Fancy Window Title", 0, 0, 0, 640, 480, options, argv[0]);
 	if (is_error(result)) return -1;
-	cf_app_init_imgui(false);
+	cf_app_init_imgui();
 	cf_set_fixed_timestep(60);
 
 	gameState.body1 = makeSoftBody();
@@ -198,7 +204,7 @@ int main(int argc, char* argv[])
 		drawSoftBody(&gameState.body1);
 		drawImgui(&gameState);
 
-		app_draw_onto_screen();
+		app_draw_onto_screen(true);
 	}
 
 	destroy_app();
