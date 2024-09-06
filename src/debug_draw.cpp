@@ -3,6 +3,7 @@
 #include "main.h"
 #include <cstdio>
 #include <imgui/imgui.h>
+#include <iostream>
 
 void drawImgui(GameState *state)
 {

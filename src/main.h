@@ -32,3 +32,4 @@ struct GameState
 };
 
 float calcSoftBodyRotationAngle(SoftBody *body, Cute::v2 centerOfMass);
+void initScene();

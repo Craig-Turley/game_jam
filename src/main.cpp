@@ -3,6 +3,7 @@
 #include "debug_draw.h"
 
 #include "cute_math.h"
+#include <imgui/imgui.h>
 #include <iostream>
 
 using namespace Cute;
@@ -41,6 +42,16 @@ inline v2 calcSoftBodyCenterOfMass(SoftBody *body)
 	return com;
 }
 
+void checkBorderCollisions(Point *p) {
+  if (p->position.y < -240.f) {
+    p->position.y = -240.f;
+    p->velocity.y *= -1;
+  }
+  if (p->position.x < -320.f) { p->position.x = -320.f; }
+  if (p->position.y > 240.f) { p->position.y = 240.f; }
+  if (p->position.x > 320.f) { p->position.x = 320.f; }
+}
+
 float calcSoftBodyRotationAngle(SoftBody *body, v2 centerOfMass) {
 	// F = -kx * dt
 	// add F to velocity
@@ -61,10 +72,25 @@ v2 rotate(v2 *anchorVertex, float angle){
     return rotatedAnchor;
 }
 
+void checkMouseDown(SoftBody *body1) {
+  if (cf_mouse_down(MOUSE_BUTTON_LEFT)) {
+    float mouse_x = cf_mouse_x() - 320.f;
+    float mouse_y = (cf_mouse_y() - 240.f) * -1;
+    v2 mouse_center = V2(mouse_x, mouse_y);
+
+    for (int i = 0; i < 4; i++) {
+      v2 new_point = mouse_center + body1->anchorVertex[i];
+      body1->points[i].position = new_point;
+    }
+  }
+}
+
 v2 testPoint = V2(-100, 20);
 v2 testPointCom = V2(-100, 0);
 void update(float dt) {
-	SoftBody *body1 = &gameState.body1;
+  SoftBody *body1 = &gameState.body1;
+
+  checkMouseDown(body1);
 
   // gravity integration
   for(int i = 0; i < 4; i++) {
@@ -84,8 +110,7 @@ void update(float dt) {
   // collision
 	for(int i = 0; i < 4; i++) {
 		Point *p = &body1->points[i];
-		if (p->position.y < -240.f) { p->position.y = -240.f; }
-	  if (p->position.x < -320.f) { p->position.x = -240.f; }
+    checkBorderCollisions(p);
   }
 
   // test point
@@ -107,7 +132,9 @@ void update(float dt) {
 	float angle = calcSoftBodyRotationAngle(body1, com);
 
   for (int i = 0; i < 4; i++) {
-    v2 targetVertex = com + rotate(&body1->anchorVertex[i], angle);
+
+    //v2 targetVertex = com + rotate(&body1->anchorVertex[i], angle);
+    v2 targetVertex = com + body1->anchorVertex[i];
     v2 x = targetVertex - body1->points[i].position;
 
     body1->points[i].target_point = targetVertex;
@@ -180,6 +207,15 @@ void main_loop(void *udata)
 	update(CF_DELTA_TIME_FIXED);
 }
 
+void initScene() {
+	gameState.body1 = makeSoftBody();
+	gameState.k_springForce = 10.f;
+  gameState.spring_damping = 1.f;
+  gameState.gravity = V2(0, -9.8f);
+  gameState.debug_drawTargetShape = true;
+  gameState.debug_drawCenterOfMass = true;
+}
+
 int main(int argc, char* argv[])
 {
 	// Create a window with a resolution of 640 x 480.
@@ -189,12 +225,7 @@ int main(int argc, char* argv[])
 	cf_app_init_imgui();
 	cf_set_fixed_timestep(60);
 
-	gameState.body1 = makeSoftBody();
-	gameState.k_springForce = 100.f;
-  gameState.spring_damping = 10.f;
-  gameState.gravity = V2(0, -9.8f);
-  gameState.debug_drawTargetShape = true;
-  gameState.debug_drawCenterOfMass = true;
+  initScene();
 
   CF_ASSERT(gameState.k_springForce * CF_DELTA_TIME_FIXED * CF_DELTA_TIME_FIXED < 1.f);
 	while (app_is_running())
