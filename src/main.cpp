@@ -8,6 +8,9 @@
 
 using namespace Cute;
 
+const float SCREEN_WIDTH = 640.f;
+const float SCREEN_HEIGHT = 480.f;
+
 GameState gameState;
 
 SoftBody makeSoftBody() {
@@ -43,13 +46,22 @@ inline v2 calcSoftBodyCenterOfMass(SoftBody *body)
 }
 
 void checkBorderCollisions(Point *p) {
-  if (p->position.y < -240.f) {
-    p->position.y = -240.f;
+  if (p->position.y < -(SCREEN_HEIGHT / 2)) {
+    p->position.y = -(SCREEN_HEIGHT / 2.f);
     p->velocity.y *= -1;
   }
-  if (p->position.x < -320.f) { p->position.x = -320.f; }
-  if (p->position.y > 240.f) { p->position.y = 240.f; }
-  if (p->position.x > 320.f) { p->position.x = 320.f; }
+  if (p->position.x < -(SCREEN_WIDTH / 2)) {
+    p->position.x = -(SCREEN_WIDTH / 2);
+    p->velocity.x *= -1;
+  }
+  if (p->position.y > (SCREEN_HEIGHT / 2)) {
+    p->position.y = (SCREEN_HEIGHT / 2.f);
+    p->velocity.y *= -1;
+  }
+  if (p->position.x > (SCREEN_WIDTH / 2)) {
+    p->position.x = (SCREEN_WIDTH / 2.f);
+    p->velocity.x *= -1;
+  }
 }
 
 float calcSoftBodyRotationAngle(SoftBody *body, v2 centerOfMass) {
@@ -72,16 +84,23 @@ v2 rotate(v2 *anchorVertex, float angle){
     return rotatedAnchor;
 }
 
-void checkMouseDown(SoftBody *body1) {
+void checkMouseDown(SoftBody *body1, float dt) {
   if (cf_mouse_down(MOUSE_BUTTON_LEFT)) {
-    float mouse_x = cf_mouse_x() - 320.f;
-    float mouse_y = (cf_mouse_y() - 240.f) * -1;
+    float mouse_x = cf_mouse_x() - (SCREEN_WIDTH / 2);
+    float mouse_y = (cf_mouse_y() - (SCREEN_HEIGHT / 2)) * -1;
     v2 mouse_center = V2(mouse_x, mouse_y);
+
+    v2 distance = mouse_center - gameState.last_mousedown;
+    v2 velocity = distance / dt;
+  ;
 
     for (int i = 0; i < 4; i++) {
       v2 new_point = mouse_center + body1->anchorVertex[i];
+      body1->points[i].velocity = velocity;
       body1->points[i].position = new_point;
     }
+
+    gameState.last_mousedown = mouse_center;
   }
 }
 
@@ -90,7 +109,7 @@ v2 testPointCom = V2(-100, 0);
 void update(float dt) {
   SoftBody *body1 = &gameState.body1;
 
-  checkMouseDown(body1);
+  checkMouseDown(body1, dt);
 
   // gravity integration
   for(int i = 0; i < 4; i++) {
@@ -103,7 +122,7 @@ void update(float dt) {
 
     float damping = expf(-gameState.spring_damping * dt);
 
-		p->velocity *= damping;
+		p->velocity.y *= damping;
     p->last_damping = damping;
   }
 
@@ -133,8 +152,8 @@ void update(float dt) {
 
   for (int i = 0; i < 4; i++) {
 
-    //v2 targetVertex = com + rotate(&body1->anchorVertex[i], angle);
-    v2 targetVertex = com + body1->anchorVertex[i];
+    v2 targetVertex = com + rotate(&body1->anchorVertex[i], angle);
+
     v2 x = targetVertex - body1->points[i].position;
 
     body1->points[i].target_point = targetVertex;
@@ -214,13 +233,14 @@ void initScene() {
   gameState.gravity = V2(0, -9.8f);
   gameState.debug_drawTargetShape = true;
   gameState.debug_drawCenterOfMass = true;
+  gameState.last_mousedown = V2(0.0, 0.0);
 }
 
 int main(int argc, char* argv[])
 {
 	// Create a window with a resolution of 640 x 480.
 	int options = APP_OPTIONS_WINDOW_POS_CENTERED_BIT;
-	Result result = make_app("Fancy Window Title", 0, 0, 0, 640, 480, options, argv[0]);
+	Result result = make_app("Fancy Window Title", 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, options, argv[0]);
 	if (is_error(result)) return -1;
 	cf_app_init_imgui();
 	cf_set_fixed_timestep(60);

@@ -25,6 +25,7 @@ struct GameState
 	SoftBody body1;
 	float k_springForce;
 	float spring_damping;
+  Cute::v2 last_mousedown;
 	Cute::v2 gravity;
   bool debug_drawTargetShape;
   bool debug_drawCenterOfMass;
