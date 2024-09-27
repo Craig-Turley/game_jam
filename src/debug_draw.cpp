@@ -14,6 +14,7 @@ void drawImgui(GameState *state)
     ImGui::Checkbox("draw target shape", &state->debug_drawTargetShape);
     ImGui::Checkbox("draw center of mass", &state->debug_drawCenterOfMass);
     ImGui::Checkbox("draw target point vector", &state->debug_drawTargetPointVector);
+    ImGui::Checkbox("game over", &state->done);
     for(int i = 0; i < 4; i++){
       char title[32];
       std::sprintf(title, "Position %d", i);
