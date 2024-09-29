@@ -14,6 +14,16 @@ const float INF = std::numeric_limits<float>::infinity();
 
 GameState gameState;
 
+bool inBoundingBox(SoftBody *body, Point *point) {
+  float max_x = body->max_x;
+  float max_y = body->max_y;
+  float min_x = body->min_x;
+  float min_y = body->min_y;
+  float x = point->position.x;
+  float y = point->position.y;
+  return (x >= min_x && x <= max_x) && (y >= min_y && y <= max_x);
+}
+
 v2 calcSoftBodyCenterOfMass(Point *points, int size) {
   v2 com = {};
   for (int i = 0; i < size; i++) {
@@ -49,7 +59,16 @@ SoftBody makeSoftBody(int offset) {
 
   v2 com = calcSoftBodyCenterOfMass(body.points, 4);
 
+   body.max_x = body.points[0].position.x;
+   body.max_y = body.points[0].position.y;
+   body.min_x = body.points[0].position.x;
+   body.min_y = body.points[0].position.y;
+
   for (int i = 0; i < 4; i++) {
+    body.max_x = cf_max(body.max_x, body.points[i].position.x);
+    body.max_y = cf_max(body.max_x, body.points[i].position.y);
+    body.min_x = cf_max(body.max_x, body.points[i].position.x);
+    body.min_y = cf_max(body.max_x, body.points[i].position.y);
     v2 vec = body.points[i].position - com;
     body.anchorVertex[i] = vec;
     body.max_x = cf_max(vec.x, body.max_x);
@@ -78,17 +97,43 @@ void checkBorderCollisions(Point *p) {
   }
 }
 
-void handleCollision(Point *a, SoftBodyCollision collision, float restitution, float dt) {
+void handleCollision(Point *a, SoftBodyCollision collision, float restitution) {
   // move point out of body
-  v2 dir = cf_safe_norm(collision.vec);
-  float d = cf_len(dir);
+  std::cout << "a position.x: " << a->position.x << std::endl;
+  std::cout << "a position.y: " << a->position.y << std::endl;
+  std::cout << "a velocity.x: " << a->velocity.x << std::endl;
+  std::cout << "a velocity.y: " << a->velocity.y << std::endl;
+  std::cout << "a mass: " << a->mass << std::endl;
+  std::cout << "collision.point position.x: " << collision.point.x << std::endl;
+  std::cout << "collision.point position.y: " << collision.point.y << std::endl;
+  std::cout << "collision.c position.x: " << collision.c->position.x << std::endl;
+  std::cout << "collision.c position.y: " << collision.c->position.y << std::endl;
+  std::cout << "collision.c velocity.x: " << collision.c->velocity.x << std::endl;
+  std::cout << "collision.c velocity.y: " << collision.c->velocity.y << std::endl;
+  std::cout << "collision.c mass: " << collision.c->mass << std::endl;
+  std::cout << "collision.d position.x: " << collision.d->position.x << std::endl;
+  std::cout << "collision.d position.y: " << collision.d->position.y << std::endl;
+  std::cout << "collision.d velocity.x: " << collision.d->velocity.x << std::endl;
+  std::cout << "collision.d velocity.y: " << collision.d->velocity.y << std::endl;
+  std::cout << "collision.d mass: " << collision.d->mass << std::endl;
+  std::cout << "collision.u: " << collision.u << std::endl;
 
-  float correction = d + RADIUS + RADIUS / 2.f;
+  v2 collision_point = collision.point;
+
+  float d = cf_len(collision.vec);
+  v2 dir = cf_safe_norm(collision.vec);
+
+  float correction = RADIUS + RADIUS + (d / 2.f);
   a->position += dir * correction;
+  collision_point += dir * -correction;
   collision.c->position += dir * -correction * (1.f - collision.u);
   collision.d->position += dir * -correction * collision.u;
 
-  dir = cf_safe_norm(cf_lerp_v2(collision.c->position, collision.d->position, collision.u) - a->position);
+  std::cout << "------------" << std::endl;
+  std::cout << "correction.x: " << dir.x * correction << std::endl;
+  std::cout << "correction.y: " << dir.y * correction << std::endl;
+
+  dir = cf_safe_norm(collision_point - a->position);
 
   float M1 = a->mass;
   float V1 = cf_dot(a->velocity, dir);
@@ -96,10 +141,22 @@ void handleCollision(Point *a, SoftBodyCollision collision, float restitution, f
   float M2 = (collision.c->mass + collision.d->mass) / 2.f;
   float V2 = cf_dot((collision.c->velocity + collision.d->velocity) / 2.f, dir);
 
+  std::cout << "------------" << std::endl;
+  std::cout << "dir.x: " << dir.x << std::endl;
+  std::cout << "dir.y: " << dir.y << std::endl;
+  std::cout << "M1: " << M1 << std::endl;
+  std::cout << "V1: " << V1 << std::endl;
+  std::cout << "M2: " << M2 << std::endl;
+  std::cout << "V2: " << V2 << std::endl;
+
   float v1_prime =
       (V1 * M1 + V2 * M2 - (V1 - V2) * M2 * restitution) / (M1 + M2);
   float v2_prime =
       (V1 * M1 + V2 * M2 - (V2 - V1) * M1 * restitution) / (M1 + M2);
+
+  std::cout << "------------" << std::endl;
+  std::cout << "v1_prime: " << v1_prime << std::endl;
+  std::cout << "v2_prime: " << v2_prime << std::endl;
 
   a->velocity += dir * (v1_prime - V1);
   collision.c->velocity += dir * ((v2_prime * (1.f - collision.u)) - V2);
@@ -133,23 +190,6 @@ const handleBallCollision = (ball1, ball2, restitution) => {
   ball2.vel.add(dir, newV2 - v2);
 };
 */
-
-v2 findOutsidePoint(SoftBody *body, int num_points, v2 com) {
-  v2 farthest_point = body->points[0].position - com;
-  float farthest_point_len = cf_len(farthest_point);
-  for (int i = 0; i < num_points; i++) {
-    v2 cur_point = body->points[i].position - com;
-    float cur_point_len = cf_len(cur_point);
-    if (cur_point_len > farthest_point_len) {
-      farthest_point = cur_point;
-      farthest_point_len = cur_point_len;
-    }
-  }
-
-  v2 outside_point = farthest_point = (farthest_point * 2) + com;
-
-  return farthest_point;
-}
 
 SoftBodyCollision detectCollision(v2 a, v2 b, v2 com, SoftBody *body, int num_points) {
   // keep track of closest intersection of collision is detected
@@ -208,8 +248,7 @@ SoftBodyCollision detectCollision(v2 a, v2 b, v2 com, SoftBody *body, int num_po
   return collision;
 }
 
-void checkBodyCollision(SoftBody *body1, SoftBody *body2, int len1, int len2,
-                        float dt) {
+void checkBodyCollision(SoftBody *body1, SoftBody *body2, int len1, int len2) {
 
   // find com for body1
   v2 body1_com = calcSoftBodyCenterOfMass(body1->points, 4);
@@ -217,18 +256,18 @@ void checkBodyCollision(SoftBody *body1, SoftBody *body2, int len1, int len2,
   // find com for body2
   v2 body2_com = calcSoftBodyCenterOfMass(body2->points, 4);
 
-  // initialize longest point
-  v2 farthest_point = findOutsidePoint(body2, 4, body2_com);
-
   // all points are now relative to 0,0
 
   for (int i = 0; i < len1; i++) {
     // current point being tested
     Point *a_point = &body1->points[i];
+    if (!inBoundingBox(body2, a_point)) {
+      continue;
+    }
     v2 a = body1->points[i].position;
     // farthest point from the COM and double it to get a point outside the
     // shape
-    v2 b = farthest_point;
+    v2 b = cf_v2(body2->max_x + 5, a.y);
     SoftBodyCollision collision = detectCollision(a, b, body1_com, body2, len2);
 
 
@@ -236,8 +275,8 @@ void checkBodyCollision(SoftBody *body1, SoftBody *body2, int len1, int len2,
       //gameState.paused = true;
       //gameState.debug_drawCollisionPoint = true;
       gameState.collision_point = a;
-      gameState.farthest_point = farthest_point;
-      handleCollision(a_point, collision, .54f, dt);
+      gameState.farthest_point = b;
+      handleCollision(a_point, collision, 0.5f);
     }
 
   }
@@ -338,6 +377,7 @@ void checkMouseDown(float dt) {
   }
 }
 
+
 void update(float dt) {
 
   for (int i = 0; i < gameState.num_bodies; i++) {
@@ -345,6 +385,11 @@ void update(float dt) {
     SoftBody *body = &gameState.bodies[i];
 
     checkMouseDown(dt);
+
+    float max_x = body->points[0].position.x;
+    float max_y = body->points[0].position.y;
+    float min_x = body->points[0].position.x;
+    float min_y = body->points[0].position.y;
 
     // gravity integration
     for (int i = 0; i < 4; i++) {
@@ -357,7 +402,19 @@ void update(float dt) {
         p->velocity += gameState.gravity * dt;
         p->position += p->velocity * dt;
       }
+
+      max_x = cf_max(max_x, body->points[i].position.x);
+      max_y = cf_max(max_y, body->points[i].position.y);
+      min_x = cf_min(min_x, body->points[i].position.x);
+      min_y = cf_min(min_y, body->points[i].position.y);
     }
+
+    // set max and min points for bounding box
+
+    body->max_x = max_x;
+    body->max_y = max_y;
+    body->min_x = min_x;
+    body->min_y = min_y;
 
     v2 com = calcSoftBodyCenterOfMass(body->points, 4);
 
@@ -376,7 +433,7 @@ void update(float dt) {
           continue;
         }
         SoftBody *body2 = &gameState.bodies[j];
-        checkBodyCollision(body, body2, 4, 4, dt);
+        checkBodyCollision(body, body2, 4, 4);
       }
     }
 
@@ -399,8 +456,6 @@ void update(float dt) {
       v2 spring_force = x * gameState.k_springForce * dt;
       point->velocity += spring_force;
     }
-
-    // damping
 
     // bascially just damping between every edge treating it as a spring
 
@@ -448,6 +503,18 @@ void drawSoftBody(SoftBody *body) {
     Point *p = &body->points[i];
     cf_draw_circle2(p->position, RADIUS, 1.0f);
   }
+
+  if (gameState.debug_drawBoundingBox) {
+    v2 t_left = cf_v2(body->min_x, body->max_y);
+    v2 b_left = cf_v2(body->min_x, body->min_y);
+    v2 t_right = cf_v2(body->max_x, body->max_y);
+    v2 b_right = cf_v2(body->max_x, body->min_y);
+    cf_draw_line(t_left, t_right, .5f);
+    cf_draw_line(t_right, b_right, .5f);
+    cf_draw_line(b_right, b_left, .5f);
+    cf_draw_line(b_left, t_left, .5f);
+  }
+
   draw_pop_color();
 
   v2 com = calcSoftBodyCenterOfMass(arr, 4);
@@ -497,9 +564,12 @@ void drawSoftBody(SoftBody *body) {
   draw_pop_color();
 }
 
+int frame = 0;
 void main_loop(void *udata) {
-  if (gameState.paused)
+  if (gameState.paused && !gameState.nextstep){
     return;
+  }
+  std::cout << "Frame processed " << frame++ << std::endl;
   update(CF_DELTA_TIME_FIXED);
 }
 

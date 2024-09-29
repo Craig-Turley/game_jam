@@ -21,6 +21,8 @@ struct SoftBody {
 	Point points[4];
   float max_x;
   float max_y;
+  float min_x;
+  float min_y;
   bool clicked;
 };
 
@@ -39,8 +41,10 @@ struct GameState
   bool debug_drawCenterOfMass;
   bool debug_drawTargetPointVector;
   bool debug_drawCollisionPoint;
+  bool debug_drawBoundingBox;
   bool paused;
   bool done;
+  bool nextstep;
 };
 
 struct SoftBodyCollision {

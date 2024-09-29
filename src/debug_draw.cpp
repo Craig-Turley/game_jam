@@ -14,7 +14,18 @@ void drawImgui(GameState *state)
     ImGui::Checkbox("draw target shape", &state->debug_drawTargetShape);
     ImGui::Checkbox("draw center of mass", &state->debug_drawCenterOfMass);
     ImGui::Checkbox("draw target point vector", &state->debug_drawTargetPointVector);
-    ImGui::Checkbox("game over", &state->done);
+    ImGui::Checkbox("draw bounding box", &state->debug_drawBoundingBox);
+    if(ImGui::Button("game over", ImVec2(80,20))) {
+      state->done = true;
+    };
+    if(ImGui::Button("next step", ImVec2(80,20))) {
+      state->nextstep = true;
+    } else {
+      state->nextstep = false;
+    }
+    if(ImGui::Button("unpause", ImVec2(80,20))) {
+      state->paused = true;
+    }
     for(int i = 0; i < 4; i++){
       char title[32];
       std::sprintf(title, "Position %d", i);
