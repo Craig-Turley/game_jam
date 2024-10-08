@@ -3,8 +3,8 @@
 #include "debug_draw.h"
 
 #include "cute_math.h"
+#include <cmath>
 #include <imgui/imgui.h>
-#include <iostream>
 
 using namespace Cute;
 
@@ -78,6 +78,35 @@ SoftBody makeSoftBody(int offset) {
   return body;
 }
 
+GasFilledSoftBody makeGasFilledSoftBody(v2 center, float gasForce) {
+
+  GasFilledSoftBody body = {};
+
+  body.points[0].position = cf_v2(3, 0) + center;
+  body.points[1].position = cf_v2(3 * sqrt(3) / 2, 3 * sqrt(3) / 2) + center;
+  body.points[2].position = cf_v2(0, 3) + center;
+  body.points[3].position = cf_v2(- 3 * sqrt(3) / 2, 3 * sqrt(3) / 2) + center;
+  body.points[4].position = cf_v2(-3, 0) + center;
+  body.points[5].position = cf_v2(- 3 * sqrt(3) / 2, - 3 * sqrt(3) / 2) + center;
+  body.points[6].position = cf_v2(0, -3) + center;
+  body.points[7].position = cf_v2(3 * sqrt(3) / 2, - 3 * sqrt(3) / 2) + center;
+
+  int n = sizeof(body.points) / sizeof(body.points[0]);
+
+  for (int i = 0; i < 8; i++) {
+    int next_idx = (i + 1) % n;
+
+    v2 a = body.points[i].position;
+    v2 b = body.points[next_idx].position;
+
+    v2 delta = b - a;
+    body.restDistances[i] = cf_len(delta);
+  }
+
+  body.gasForce = gasForce;
+
+}
+
 void checkBorderCollisions(Point *p) {
   if (p->position.y < -(SCREEN_HEIGHT / 2)) {
     p->position.y = -(SCREEN_HEIGHT / 2.f);
@@ -97,101 +126,61 @@ void checkBorderCollisions(Point *p) {
   }
 }
 
-void handleCollision(Point *a, SoftBodyCollision collision, float restitution) {
-  // move point out of body
-  std::cout << "a position.x: " << a->position.x << std::endl;
-  std::cout << "a position.y: " << a->position.y << std::endl;
-  std::cout << "a velocity.x: " << a->velocity.x << std::endl;
-  std::cout << "a velocity.y: " << a->velocity.y << std::endl;
-  std::cout << "a mass: " << a->mass << std::endl;
-  std::cout << "collision.point position.x: " << collision.point.x << std::endl;
-  std::cout << "collision.point position.y: " << collision.point.y << std::endl;
-  std::cout << "collision.c position.x: " << collision.c->position.x << std::endl;
-  std::cout << "collision.c position.y: " << collision.c->position.y << std::endl;
-  std::cout << "collision.c velocity.x: " << collision.c->velocity.x << std::endl;
-  std::cout << "collision.c velocity.y: " << collision.c->velocity.y << std::endl;
-  std::cout << "collision.c mass: " << collision.c->mass << std::endl;
-  std::cout << "collision.d position.x: " << collision.d->position.x << std::endl;
-  std::cout << "collision.d position.y: " << collision.d->position.y << std::endl;
-  std::cout << "collision.d velocity.x: " << collision.d->velocity.x << std::endl;
-  std::cout << "collision.d velocity.y: " << collision.d->velocity.y << std::endl;
-  std::cout << "collision.d mass: " << collision.d->mass << std::endl;
-  std::cout << "collision.u: " << collision.u << std::endl;
+float reverse_lerp(v2 a, v2 b, v2 p) {
+  return (p.x - a.x) / (b.x - a.x);
+}
 
-  v2 collision_point = collision.point;
+void handleCollision(Point *a, ClosestPoint closest_point, float restitution) {
 
-  float d = cf_len(collision.vec);
-  v2 dir = cf_safe_norm(collision.vec);
+  // need to find closest point on the body to the currently tested point
+  // move it out and resolve collision between two perfect spheres
 
-  float correction = RADIUS + RADIUS + (d / 2.f);
-  a->position += dir * correction;
-  collision_point += dir * -correction;
-  collision.c->position += dir * -correction * (1.f - collision.u);
-  collision.d->position += dir * -correction * collision.u;
+  // moving point outside
+  v2 correction = closest_point.point - a->position;
+  float correction_magnitude = cf_len(correction);
+  // moving the ball out and then accounting for radius to perform collision res
+  float correction_dist = correction_magnitude + ((RADIUS + RADIUS) / 2.f);
+  v2 correction_norm = cf_norm(correction);
 
-  std::cout << "------------" << std::endl;
-  std::cout << "correction.x: " << dir.x * correction << std::endl;
-  std::cout << "correction.y: " << dir.y * correction << std::endl;
+  // this gets the ratio of where the point currently is on the line
+  float t = reverse_lerp(closest_point.c->position, closest_point.d->position, closest_point.point);
 
-  dir = cf_safe_norm(collision_point - a->position);
+  a->position += correction_norm * correction_dist;
+  closest_point.point += correction_norm * -correction_magnitude;
+  closest_point.c->position += correction * -correction_magnitude * (1.f - t);
+  closest_point.d->position += correction * -correction_magnitude * t;
+
+  // point is now moved outside the body and is now perfectly colliding with
+  // our virtual point. now perform the collision between two perfect spheres
+
+  v2 d = closest_point.point - a->position;
+  v2 dir = cf_safe_norm(d);
+
+  // skipping the collision check and adjusting since we already know
+  // that these two spheres are colliding perfeclty
+  // and dont need to be adjusted
+
+  // giving the virtual point an average velocity of the two points that make
+  // up the line segment it currently is laying upon
+  v2 cd_vel_avg = (closest_point.c->velocity + closest_point.d->velocity) / 2.f;
+  float cd_mass_avg = (closest_point.c->mass + closest_point.d->mass) / 2.f;
+
+  float V1 = cf_dot(a->velocity, dir);
+  float V2 = cf_dot(cd_vel_avg, dir);
 
   float M1 = a->mass;
-  float V1 = cf_dot(a->velocity, dir);
+  float M2 = cd_mass_avg;
 
-  float M2 = (collision.c->mass + collision.d->mass) / 2.f;
-  float V2 = cf_dot((collision.c->velocity + collision.d->velocity) / 2.f, dir);
+  float newV1 = (M1 * V1 + M2 * V2 - M2 * (V1 - V2) * restitution) / (M1 + M2);
+  float newV2 = (M1 * V1 + M2 * V2 - M1 * (V2 - V1) * restitution) / (M1 + M2);
 
-  std::cout << "------------" << std::endl;
-  std::cout << "dir.x: " << dir.x << std::endl;
-  std::cout << "dir.y: " << dir.y << std::endl;
-  std::cout << "M1: " << M1 << std::endl;
-  std::cout << "V1: " << V1 << std::endl;
-  std::cout << "M2: " << M2 << std::endl;
-  std::cout << "V2: " << V2 << std::endl;
+  a->velocity += dir * (newV1 - V1);
+  closest_point.c->velocity += (dir * (newV2 - V2)) * (1.f - t);
+  closest_point.d->velocity += (dir * (newV2 - V2)) * t;
 
-  float v1_prime =
-      (V1 * M1 + V2 * M2 - (V1 - V2) * M2 * restitution) / (M1 + M2);
-  float v2_prime =
-      (V1 * M1 + V2 * M2 - (V2 - V1) * M1 * restitution) / (M1 + M2);
-
-  std::cout << "------------" << std::endl;
-  std::cout << "v1_prime: " << v1_prime << std::endl;
-  std::cout << "v2_prime: " << v2_prime << std::endl;
-
-  a->velocity += dir * (v1_prime - V1);
-  collision.c->velocity += dir * ((v2_prime * (1.f - collision.u)) - V2);
-  collision.d->velocity += dir * (v2_prime * collision.u - V2);
 }
-/*
-const handleBallCollision = (ball1, ball2, restitution) => {
-  let dir = new Vector2();
-  dir.subtractVectors(ball2.pos, ball1.pos);
-  let d = dir.length();
-  // no collision occured
-  if (d == 0.0 || d > ball1.radius + ball2.radius)
-    return;
 
-  dir.scale(1.0 / d);
-
-  let corr = (ball1.radius + ball2.radius - d) / 2.0;
-  ball1.pos.add(dir, -corr);
-  ball2.pos.add(dir, corr);
-
-  let v1 = ball1.vel.dot(dir);
-  let v2 = ball2.vel.dot(dir);
-
-  let m1 = ball1.mass;
-  let m2 = ball2.mass;
-
-  let newV1 = (m1 * v1 + m2 * v2 - m2 * (v1 - v2) * restitution) / (m1 + m2);
-  let newV2 = (m1 * v1 + m2 * v2 - m1 * (v2 - v1) * restitution) / (m1 + m2);
-
-  ball1.vel.add(dir, newV1 - v1);
-  ball2.vel.add(dir, newV2 - v2);
-};
-*/
-
-SoftBodyCollision detectCollision(v2 a, v2 b, v2 com, SoftBody *body, int num_points) {
+SoftBodyCollision detectCollision(v2 a, v2 b, SoftBody *body, int num_points) {
   // keep track of closest intersection of collision is detected
   // initialize to the far value so we can always compare less than
   SoftBodyCollision collision = {
@@ -212,31 +201,35 @@ SoftBodyCollision detectCollision(v2 a, v2 b, v2 com, SoftBody *body, int num_po
     int nextIndex = (j + 1) % n;
     v2 c = body->points[j].position;
     v2 d = body->points[nextIndex].position;
-    float t_top = (d.x - c.x) * (a.y - c.y) - (d.y - c.y) * (a.x - c.x);
-    float u_top = (c.y - a.y) * (a.x - b.x) - (c.x - a.x) * (a.y - b.y);
-    float bottom = (d.y - c.y) * (b.x - a.x) - (d.x - c.x) * (b.y - a.y);
-    float t = t_top / bottom;
-    float u = u_top / bottom;
+    /* t = Qx/D , s = Qy/D
+     * where
+     * D = nx*my - ny*mx
+     * Qx = my*px - mx*py
+     * where
+     * nx*t + mx*s = px
+     * ny*t + my*s = py
+     * where
+     * n = b - a
+     * m = c - d
+     * and p = c - a
+     *
+     * start from
+     * a + t(b-a) = c + s(d-c)
+     * */
+    v2 n = b - a;
+    v2 m = c - d;
+    v2 p = c - a;
 
-    if (bottom != 0) {
-      if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+    float D = n.x * m.y - n.y * m.x;
+    float Qx = m.y * p.x - m.x * p.y;
+    float Qy = n.x * p.y - n.y * p.x;
+
+    float t = Qx / D;
+    float s = Qy / D;
+
+    if (D != 0) {
+      if (t >= 0 && t <= 1 && s >= 0 && s <= 1) {
         collision_count++;
-        // since c and d are relative to 0, this point is also relative to 0
-        // we find the point on the line of the sofy body being tested against
-        // not the softbody of the individua point being tested
-        v2 point_on_line = cf_lerp_v2(c, d, u);
-        v2 dist_to_current_point_vec = point_on_line - a;
-        float dist_to_current_point = cf_len(dist_to_current_point_vec);
-        // keeping track of the closest point to the center of mass to use for collision
-        float dist_to_com = cf_len(com - point_on_line);
-        if (dist_to_com < collision.distance) {
-          collision.point = point_on_line;
-          collision.vec = dist_to_current_point_vec;
-          collision.distance = dist_to_com;
-          collision.c = &body->points[j];
-          collision.d = &body->points[nextIndex];
-          collision.u = u;
-        }
       }
     }
   }
@@ -248,37 +241,76 @@ SoftBodyCollision detectCollision(v2 a, v2 b, v2 com, SoftBody *body, int num_po
   return collision;
 }
 
-void checkBodyCollision(SoftBody *body1, SoftBody *body2, int len1, int len2) {
+ClosestPoint findClosestPoint(Point *a, SoftBody *body, v2 com, int num_point) {
+
+  // test every line of the body to find closet point
+  // find dc, normalize, dot a and multiply by normal to get point
+
+  ClosestPoint point = {
+    cf_v2(INF, INF),
+    INF,
+    NULL,
+    NULL,
+  };
+
+  int n = sizeof(body->points) / sizeof(body->points[0]);
+
+  for (int i = 0; i < num_point; i++) {
+    int next_idx = (i + 1) % n;
+
+    Point *c = &body->points[i];
+    Point *d = &body->points[next_idx];
+
+    //vector from c->d (side being tested)
+    v2 dc = d->position - c->position;
+    v2 dc_norm = cf_safe_norm(dc);
+
+    // vector from c to point
+    v2 cp = a->position - c->position;
+    float cp_dot = cf_dot(dc_norm, cp);
+    v2 point_on_line = (dc_norm * cp_dot) + c->position; // im adding c to make it relative to 0,0
+
+    float dist_to_point = cf_len(a->position - point_on_line);
+    if (dist_to_point < point.distance) {
+      point.distance = dist_to_point;
+      point.point = point_on_line;
+      point.c = c;
+      point.d = d;
+    }
+
+  }
+
+  return point;
+
+}
+
+void checkBodyCollision(SoftBody *body1, SoftBody *body2, int num_points1, int num_points2) {
 
   // find com for body1
-  v2 body1_com = calcSoftBodyCenterOfMass(body1->points, 4);
+  v2 body1_com = calcSoftBodyCenterOfMass(body1->points, num_points1);
 
   // find com for body2
-  v2 body2_com = calcSoftBodyCenterOfMass(body2->points, 4);
+  v2 body2_com = calcSoftBodyCenterOfMass(body2->points, num_points2);
 
-  // all points are now relative to 0,0
-
-  for (int i = 0; i < len1; i++) {
+  for (int i = 0; i < num_points1; i++) {
     // current point being tested
     Point *a_point = &body1->points[i];
     if (!inBoundingBox(body2, a_point)) {
       continue;
     }
     v2 a = body1->points[i].position;
-    // farthest point from the COM and double it to get a point outside the
-    // shape
+    // point outside bounding box axis aligned(x) with current
+    // point being tested. added 5 as a buffer to get outside the box
     v2 b = cf_v2(body2->max_x + 5, a.y);
-    SoftBodyCollision collision = detectCollision(a, b, body1_com, body2, len2);
-
+    SoftBodyCollision collision = detectCollision(a, b, body2, num_points2);
 
     if (collision.happened) {
-      //gameState.paused = true;
+      ClosestPoint closest_point = findClosestPoint(a_point, body2, body2_com, num_points2);
+      gameState.collision_point = closest_point.point;
       //gameState.debug_drawCollisionPoint = true;
-      gameState.collision_point = a;
-      gameState.farthest_point = b;
-      handleCollision(a_point, collision, 0.5f);
+      //gameState.paused = true;
+      handleCollision(a_point, closest_point,  0.5f);
     }
-
   }
 }
 
@@ -394,8 +426,6 @@ void update(float dt) {
     // gravity integration
     for (int i = 0; i < 4; i++) {
       Point *p = &body->points[i];
-      p->last_velocity = p->velocity;
-      p->last_position = p->position;
 
       // add grav if its not clicked
       if (!body->clicked) {
@@ -447,10 +477,6 @@ void update(float dt) {
       v2 targetVertex = com + rotate(&body->anchorVertex[i], angle);
       v2 x = targetVertex - point->position;
       v2 target_vertex_corrected = body->anchorVertex[i] + com;
-
-      // for debug log
-      point->target_point = targetVertex;
-      point->last_anchor_dist = x;
 
       // spring force
       v2 spring_force = x * gameState.k_springForce * dt;
@@ -538,38 +564,22 @@ void drawSoftBody(SoftBody *body) {
     draw_pop_color();
   }
 
-  if (gameState.debug_drawTargetPointVector) {
-    draw_push_color(cf_color_orange());
-    for (int i = 0; i < 4; i++) {
-      draw_push_color(cf_color_magenta());
-      cf_draw_circle2(arr[i].position, RADIUS, 1.f);
-      cf_draw_circle2(arr[i].target_point, RADIUS, 1.f);
-      draw_pop_color();
-      cf_draw_line(arr[i].position, arr[i].target_point, .5f);
-    }
-  }
-
   if (gameState.debug_drawCollisionPoint) {
     draw_push_color(cf_color_orange());
     cf_draw_circle2(gameState.collision_point, RADIUS, 1.f);
     cf_draw_pop_color();
-    draw_push_color(cf_color_yellow());
+    /*draw_push_color(cf_color_yellow());
     cf_draw_circle2(gameState.farthest_point, RADIUS, 1.f);
     draw_pop_color();
     draw_push_color(cf_color_red());
     cf_draw_line(gameState.collision_point, gameState.farthest_point, .5f);
-    draw_pop_color();
+    draw_pop_color()*/;
   }
 
   draw_pop_color();
 }
 
-int frame = 0;
 void main_loop(void *udata) {
-  if (gameState.paused && !gameState.nextstep){
-    return;
-  }
-  std::cout << "Frame processed " << frame++ << std::endl;
   update(CF_DELTA_TIME_FIXED);
 }
 
@@ -612,7 +622,7 @@ int main(int argc, char *argv[]) {
 
     app_draw_onto_screen(true);
 
-    if (gameState.done) {
+    if (gameState.game_over) {
       break;
     }
   }

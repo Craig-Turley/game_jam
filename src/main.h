@@ -26,6 +26,12 @@ struct SoftBody {
   bool clicked;
 };
 
+struct GasFilledSoftBody {
+  Point points[8];
+  float restDistances[8];
+  flaot gasForce;
+};
+
 struct GameState
 {
 	SoftBody bodies[2];
@@ -39,11 +45,9 @@ struct GameState
   Cute::v2 farthest_point;
   bool debug_drawTargetShape;
   bool debug_drawCenterOfMass;
-  bool debug_drawTargetPointVector;
-  bool debug_drawCollisionPoint;
   bool debug_drawBoundingBox;
   bool paused;
-  bool done;
+  bool game_over;
   bool nextstep;
 };
 
@@ -56,6 +60,13 @@ struct SoftBodyCollision {
 	float u;
   float dist_to_com;
   bool happened;
+};
+
+struct ClosestPoint {
+  Cute::v2 point;
+  float distance;
+  Point *c;
+  Point *d;
 };
 
 float calcSoftBodyRotationAngle(SoftBody *body, Cute::v2 centerOfMass);
