@@ -11,11 +11,15 @@ void drawImgui(GameState *state)
     ImGui::DragFloat("spring force", &state->k_springForce, 1.0f, 0.f, 300.f);
     ImGui::DragFloat("spring damping", &state->spring_damping, 0.01f, 0.0f, 1.0f);
     ImGui::DragFloat2("gravity", (float*)&state->gravity, 1.0f, -500.0f, 500.0f);
+    ImGui::DragFloat("gas force", &state->gas_bodies[0].gasForce, 1.0f, 0.0f, 1000.f);
     ImGui::Checkbox("draw target shape", &state->debug_drawTargetShape);
     ImGui::Checkbox("draw center of mass", &state->debug_drawCenterOfMass);
     ImGui::Checkbox("draw bounding box", &state->debug_drawBoundingBox);
     if(ImGui::Button("game over", ImVec2(80,20))) {
       state->game_over = true;
     };
+		char area[5];
+		std::sprintf(area, "area");
+		ImGui::LabelText(area, "%.3f", state->gas_bodies[0].volume);
     ImGui::End();
 }

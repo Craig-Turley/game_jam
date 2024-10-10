@@ -1,16 +1,14 @@
 #include "main.h"
 #include "cute_app.h"
+#include "cute_draw.h"
 #include "debug_draw.h"
 
 #include "cute_math.h"
 #include <cmath>
 #include <imgui/imgui.h>
+#include <iostream>
 
 using namespace Cute;
-
-const float SCREEN_WIDTH = 640.f;
-const float SCREEN_HEIGHT = 480.f;
-const float INF = std::numeric_limits<float>::infinity();
 
 GameState gameState;
 
@@ -82,14 +80,13 @@ GasFilledSoftBody makeGasFilledSoftBody(v2 center, float gasForce) {
 
   GasFilledSoftBody body = {};
 
-  body.points[0].position = cf_v2(3, 0) + center;
-  body.points[1].position = cf_v2(3 * sqrt(3) / 2, 3 * sqrt(3) / 2) + center;
-  body.points[2].position = cf_v2(0, 3) + center;
-  body.points[3].position = cf_v2(- 3 * sqrt(3) / 2, 3 * sqrt(3) / 2) + center;
-  body.points[4].position = cf_v2(-3, 0) + center;
-  body.points[5].position = cf_v2(- 3 * sqrt(3) / 2, - 3 * sqrt(3) / 2) + center;
-  body.points[6].position = cf_v2(0, -3) + center;
-  body.points[7].position = cf_v2(3 * sqrt(3) / 2, - 3 * sqrt(3) / 2) + center;
+	float radius = 20.0;
+	int num_points = 8;
+
+	for (int i = 0; i < num_points; i++) {
+			float angle = i * 2 * M_PI / num_points;
+			body.points[i].position = cf_v2(radius * cos(angle), radius * sin(angle)) + center;
+	}
 
   int n = sizeof(body.points) / sizeof(body.points[0]);
 
@@ -104,6 +101,10 @@ GasFilledSoftBody makeGasFilledSoftBody(v2 center, float gasForce) {
   }
 
   body.gasForce = gasForce;
+	body.spring_force = 300.f;
+	body.damping_factor = 30.f;
+
+  return body;
 
 }
 
@@ -409,8 +410,7 @@ void checkMouseDown(float dt) {
   }
 }
 
-
-void update(float dt) {
+void updateSoftBodies(float dt) {
 
   for (int i = 0; i < gameState.num_bodies; i++) {
 
@@ -497,8 +497,8 @@ void update(float dt) {
           body->anchorVertex[next_idx] - body->anchorVertex[i];
       float rest_distance = cf_len(rest_distance_vec);
 
-      v2 p0 = point->position - com;
-      v2 p1 = next_point->position - com;
+      v2 p0 = point->position;
+      v2 p1 = next_point->position;
       v2 v0 = point->velocity;
       v2 v1 = next_point->velocity;
 
@@ -514,6 +514,139 @@ void update(float dt) {
       next_point->velocity += direction * (vrel_delta / 2.0);
     }
   }
+}
+
+float getVolume(GasFilledSoftBody *body, int num_points) {
+	float volume = 0;
+
+	int n = sizeof(body->points) / sizeof(body->points[0]);
+
+	for (int i = 0; i < num_points; i++) {
+		float x1 = body->points[i].position.x;
+		float y1 = body->points[i].position.y;
+		float x2 = body->points[(i + 1) % n].position.x;
+		float y2 = body->points[(i + 1) % n].position.y;
+
+		float r12d = sqrt(
+      (x1 - x2) * (x1 - x2) +
+      (y1 - y2) * (y1 - y2)
+    );
+
+    v2 norm = cf_safe_norm(body->points[(i + 1) % n].position - body->points[i].position);
+
+    volume += 0.5f * fabs(x1 - x2) * fabs(norm.x) * r12d;
+	}
+
+	return volume;
+
+}
+
+void updateGasFilledSoftBodies(float dt) {
+
+  for (int i = 0; i < gameState.num_gas_bodies; i++) {
+
+    // integrate gravity
+    GasFilledSoftBody *body = &gameState.gas_bodies[i];
+
+    for (int pointIdx = 0; pointIdx < 8; pointIdx++) {
+      Point *p = &body->points[pointIdx];
+
+      p->velocity += gameState.gravity * dt;
+      p->position += p->velocity * dt;
+    }
+
+
+    //check collision
+    for (int pointIdx = 0; pointIdx < 8; pointIdx++) {
+      checkBorderCollisions(&body->points[pointIdx]);
+    }
+
+    // satisfy contraints
+
+		v2 com = calcSoftBodyCenterOfMass(body->points, 8);
+		float volume = getVolume(body, 8);
+		body->volume = volume;
+
+    int n = sizeof(body->points) / sizeof(body->points[0]);
+
+    for (int i = 0; i < 8; i++) {
+      float x1 = body->points[i].position.x;
+      float y1 = body->points[i].position.y;
+      float x2 = body->points[(i + 1) % n].position.x;
+      float y2 = body->points[(i + 1) % n].position.y;
+
+      float r12d = sqrt(
+        (x1 - x2) * (x1 - x2) +
+        (y1 - y2) * (y1 - y2)
+      );
+
+      float pressurev = r12d * body->gasForce * (1.0f / volume);
+
+      v2 rest_distance = cf_safe_norm(body->points[(i + 1) % n].position - body->points[i].position) * body->restDistances[i];
+      v2 norm = cf_safe_norm(rest_distance);
+      v2 dir = cf_v2(norm.y, - norm.x);
+
+      body->points[i].velocity += dir * pressurev;
+      body->points[(i + 1) % n].velocity += dir * pressurev;
+
+    }
+
+    // rest distance idx
+    for (int rdIdx = 0; rdIdx < 8; rdIdx++) {
+      int nextIdx = (rdIdx + 1) % n;
+      float rd = body->restDistances[rdIdx];
+
+      Point *a = &body->points[rdIdx];
+      Point *b = &body->points[nextIdx];
+
+      v2 delta = b->position - a->position;
+      float distance = cf_len(delta);
+      v2 direction = delta / distance;
+
+      v2 required_delta = delta * (rd / distance);
+      v2 force = (required_delta - delta) * body->spring_force;
+
+      a->velocity -= force * dt;
+      b->velocity += force * dt;
+
+      float vrel = dot(b->velocity - a->velocity, direction);
+      float damping_factor = exp(-body->damping_factor * dt);
+      float new_vrel = vrel * damping_factor;
+      float vrel_delta = new_vrel - vrel;
+
+      a->velocity -= direction * vrel_delta / 2.0;
+      b->velocity += direction * vrel_delta / 2.0;
+    }
+
+  }
+
+}
+
+/*
+ *
+    v2 p0 = point->position;
+    v2 p1 = next_point->position;
+    v2 v0 = point->velocity;
+    v2 v1 = next_point->velocity;
+
+    v2 delta = p1 - p0;
+    v2 direction = cf_safe_norm(delta);
+
+    float vrel = dot(v1 - v0, direction);
+    float damping_force = expf(-gameState.spring_damping * dt);
+    float new_vrel = vrel * damping_force;
+    float vrel_delta = new_vrel - vrel;
+
+    point->velocity -= direction * (vrel_delta / 2.0);
+    next_point->velocity += direction * (vrel_delta / 2.0);
+ */
+
+void update(float dt) {
+
+  updateSoftBodies(dt);
+
+  updateGasFilledSoftBodies(dt);
+
 }
 
 void drawSoftBody(SoftBody *body) {
@@ -579,6 +712,26 @@ void drawSoftBody(SoftBody *body) {
   draw_pop_color();
 }
 
+void drawGasFilledSoftBody(GasFilledSoftBody *body) {
+
+  // draw lines
+  int n = sizeof(body->points) / sizeof(body->points[0]);
+
+  for (int i = 0; i < 8; i++) {
+    int nextIdx = (i + 1) % n;
+
+    cf_draw_line(body->points[i].position, body->points[nextIdx].position , 0.5f);
+  }
+
+  // draw points
+  draw_push_color(cf_color_red());
+  for (int i = 0; i < 8; i++) {
+    cf_draw_circle2(body->points[i].position, RADIUS, 1.0f);
+  }
+  draw_pop();
+
+}
+
 void main_loop(void *udata) {
   update(CF_DELTA_TIME_FIXED);
 }
@@ -588,6 +741,9 @@ void initScene() {
   for (int i = 0; i < gameState.num_bodies; i++) {
     gameState.bodies[i] = makeSoftBody(i * 50);
   }
+  gameState.num_gas_bodies = 1;
+  gameState.gas_bodies[0] = makeGasFilledSoftBody(cf_v2(-130, -180), 300.0);
+  gameState.num_gas_bodies = 1;
   gameState.k_springForce = 100.f;
   gameState.spring_damping = 10.f;
   gameState.gravity = V2(0, -9.8f);
@@ -618,6 +774,12 @@ int main(int argc, char *argv[]) {
       SoftBody *body = &gameState.bodies[i];
       drawSoftBody(body);
     }
+
+    for (int i = 0; i < gameState.num_gas_bodies; i++) {
+      GasFilledSoftBody *body = &gameState.gas_bodies[i];
+      drawGasFilledSoftBody(body);
+    }
+
     drawImgui(&gameState);
 
     app_draw_onto_screen(true);

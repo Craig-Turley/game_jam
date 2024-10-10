@@ -3,6 +3,9 @@
 #include <cute.h>
 
 const float RADIUS = 1.0f;
+const float SCREEN_WIDTH = 640.f;
+const float SCREEN_HEIGHT = 480.f;
+const float INF = std::numeric_limits<float>::infinity();
 
 struct Point {
 	Cute::v2 position;
@@ -29,22 +32,28 @@ struct SoftBody {
 struct GasFilledSoftBody {
   Point points[8];
   float restDistances[8];
-  flaot gasForce;
+  float gasForce;
+	float spring_force;
+	float damping_factor;
+	float volume;
 };
 
 struct GameState
 {
 	SoftBody bodies[2];
 	SoftBody body1;
+  GasFilledSoftBody gas_bodies[1];
 	float k_springForce;
 	float spring_damping;
-	float num_bodies;
+	int num_bodies;
+  int num_gas_bodies;
   Cute::v2 last_mousedown;
 	Cute::v2 gravity;
   Cute::v2 collision_point;
   Cute::v2 farthest_point;
   bool debug_drawTargetShape;
   bool debug_drawCenterOfMass;
+  bool debug_drawCollisionPoint;
   bool debug_drawBoundingBox;
   bool paused;
   bool game_over;
