@@ -18,31 +18,46 @@ struct Point {
   Cute::v2 target_point;
 };
 
-struct SoftBody {
-	Cute::v2 anchorVertex[4];
-  Cute::v2 com;
-	Point points[4];
+struct BoundingBox {
   float max_x;
   float max_y;
   float min_x;
   float min_y;
+};
+
+struct SoftBody {
+	Cute::v2 anchorVertex[12];
+  Cute::v2 com;
+	Point points[12];
+  int num_points;
+  BoundingBox bounding_box;
   bool clicked;
 };
 
 struct GasFilledSoftBody {
   Point points[8];
+  BoundingBox bounding_box;
   float restDistances[8];
+  int num_points;
   float gasForce;
 	float spring_force;
 	float damping_factor;
-	float volume;
+  float volume;
+};
+
+struct Car {
+  SoftBody *car_body;
+  GasFilledSoftBody *wheels[2];
+  int back_axl_idx[4];
+  int front_axl_idx[4];
 };
 
 struct GameState
 {
 	SoftBody bodies[2];
 	SoftBody body1;
-  GasFilledSoftBody gas_bodies[1];
+  GasFilledSoftBody gas_bodies[2];
+  Car car;
 	float k_springForce;
 	float spring_damping;
 	int num_bodies;
@@ -58,6 +73,7 @@ struct GameState
   bool paused;
   bool game_over;
   bool nextstep;
+  Cute::v2 axls[4]; //debug purposes`
 };
 
 struct SoftBodyCollision {
