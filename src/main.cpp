@@ -1,5 +1,6 @@
 #include "main.h"
 #include "cute_app.h"
+#include "cute_color.h"
 #include "cute_draw.h"
 #include "cute_input.h"
 #include "debug_draw.h"
@@ -120,30 +121,35 @@ GasFilledSoftBody makeGasFilledSoftBody(v2 center, float gasForce) {
 
   GasFilledSoftBody body = {};
 
-	float radius = 7.5;
-	int num_points = 8;
+	float radius = 20.f;
+
+	int num_points = 12;
 
 	for (int i = 0; i < num_points; i++) {
-			float angle = i * 2 * M_PI / num_points;
+			float angle = (float)i * 2.0 * M_PI / (float)num_points;
 			body.points[i].position = cf_v2(radius * cos(angle), radius * sin(angle)) + center;
-	}
 
-  int n = sizeof(body.points) / sizeof(body.points[0]);
+      body.points[i].force_accum = cf_v2(0, 0);
+  }
 
-  for (int i = 0; i < 8; i++) {
+  int n = num_points;
+
+  for (int i = 0; i < num_points; i++) {
     int next_idx = (i + 1) % n;
 
     v2 a = body.points[i].position;
     v2 b = body.points[next_idx].position;
 
     v2 delta = b - a;
-    body.restDistances[i] = cf_len(delta);
+    float distance = cf_len(delta);
+    body.restDistances[i] = distance;
+
   }
 
   body.gasForce = gasForce;
-	body.spring_force = 300.f;
-	body.damping_factor = 30.f;
-  body.num_points = 8;
+	body.spring_force = 1000.f;
+	body.damping_factor = 100.f;
+  body.num_points = num_points;
   body.bounding_box.max_x = body.points[0].position.x;
   body.bounding_box.max_y = body.points[0].position.y;
   body.bounding_box.min_x = body.points[0].position.x;
@@ -161,7 +167,8 @@ void checkBorderCollisions(Point *p, float dt, float elasticity) {
     auto vt = p->velocity - vn;
 
     vn *= - elasticity;
-    vt *= std::exp(- 100 * dt);
+    float friction = 100;
+    vt *= std::exp(- friction * dt);
 
     p->velocity = vn + vt;
   }
@@ -249,7 +256,7 @@ SoftBodyCollision detectCollision(v2 a, v2 b, SoftBody *body, int num_points) {
   };
   int collision_count = 0;
   // next check all lines in body
-  int n = sizeof(body->points) / sizeof(body->points[0]);
+  int n = body->num_points;
 
   for (int j = 0; j < num_points; j++) {
     int nextIndex = (j + 1) % n;
@@ -475,18 +482,27 @@ void checkMouseDown(float dt) {
 }
 
 void checkInputs(float dt) {
+  float speed = 5.f;
+
   for (int i = 0; i < 2; i++) {
     GasFilledSoftBody *wheel = &gameState.gas_bodies[i];
     if (cf_key_down(CF_KEY_D)){
 
       v2 axel = calculateWheelAxel(wheel);
 
-      for (int i = 0; i < 8; i++) {
+      for (int i = 0; i < wheel->num_points; i++) {
         Point *p = &wheel->points[i];
         v2 r = cf_safe_norm(p->position - axel);
+        float r_len = cf_len(r);
+        if (r_len < 4) { r_len = 4; }
+        v2 cur_vel_dir = r * dot(r, p->velocity);
+        float cur_vel = cf_len(cur_vel_dir);
+        if (cur_vel > 25.f) {
+          continue;
+        }
 
         v2 dir = cf_v2(r.y, -r.x);
-        p->position += dir;
+        p->velocity += dir * speed;
       }
     }
 
@@ -495,12 +511,26 @@ void checkInputs(float dt) {
 
       v2 axel = calculateWheelAxel(wheel);
 
-      for (int i = 0; i < 8; i++) {
+      for (int i = 0; i < wheel->num_points; i++) {
         Point *p = &wheel->points[i];
         v2 r = cf_safe_norm(p->position - axel);
+        float r_len = cf_len(r);
+        if (r_len < 4) { r_len = 4; }
+        v2 cur_vel_dir = r * dot(r, p->velocity);
+        float cur_vel = cf_len(cur_vel_dir);
+        if (cur_vel > 25.f) {
+          continue;
+        }
 
         v2 dir = cf_v2(-r.y, r.x);
-        p->position += dir;
+        p->velocity += dir * speed;
+      }
+    }
+
+    if (cf_key_down(CF_KEY_W)) {
+      for (int i = 0; i < wheel->num_points; i++) {
+        wheel->points[i].position += cf_v2(0, 1);
+        wheel->points[i].velocity += cf_v2(0, 1);
       }
     }
   }
@@ -513,7 +543,6 @@ void updateSoftBodies(float dt) {
     SoftBody *body = &gameState.bodies[i];
 
     checkMouseDown(dt);
-    checkInputs(dt);
 
     float max_x = body->points[0].position.x;
     float max_y = body->points[0].position.y;
@@ -620,7 +649,7 @@ void updateSoftBodies(float dt) {
 float getVolume(GasFilledSoftBody *body, int num_points) {
 	float volume = 0;
 
-	int n = sizeof(body->points) / sizeof(body->points[0]);
+	int n = body->num_points;
 
 	for (int i = 0; i < num_points; i++) {
 		float x1 = body->points[i].position.x;
@@ -635,7 +664,7 @@ float getVolume(GasFilledSoftBody *body, int num_points) {
 
     v2 norm = cf_safe_norm(body->points[(i + 1) % n].position - body->points[i].position);
 
-    volume += 0.5f * fabs(x1 - x2) * fabs(norm.x) * r12d;
+    volume += 0.5f * fabs(x1 - x2) * fabs(norm.y) * r12d;
 	}
 
 	return volume;
@@ -648,70 +677,32 @@ void updateGasFilledSoftBodies(float dt) {
 
     // integrate gravity
     GasFilledSoftBody *body = &gameState.gas_bodies[i];
+    body->gasForce = gameState.gas_force;
 
-    float max_x = body->points[0].position.x;
-    float max_y = body->points[0].position.y;
-    float min_x = body->points[0].position.x;
-    float min_y = body->points[0].position.y;
-
-    for (int pointIdx = 0; pointIdx < 8; pointIdx++) {
+    for (int pointIdx = 0; pointIdx < body->num_points; pointIdx++) {
       Point *p = &body->points[pointIdx];
 
       p->velocity += gameState.gravity * dt;
       p->position += p->velocity * dt;
 
-      max_x = cf_max(max_x, body->points[i].position.x);
-      max_y = cf_max(max_y, body->points[i].position.y);
-      min_x = cf_min(min_x, body->points[i].position.x);
-      min_y = cf_min(min_y, body->points[i].position.y);
+      p->force_accum = cf_v2(0, 0);
     }
 
-    // set max and min points for bounding box
-
-    body->bounding_box.max_x = max_x;
-    body->bounding_box.max_y = max_y;
-    body->bounding_box.min_x = min_x;
-    body->bounding_box.min_y = min_y;
-
-
     //check collision
-    for (int pointIdx = 0; pointIdx < 8; pointIdx++) {
+    for (int pointIdx = 0; pointIdx < body->num_points; pointIdx++) {
       checkBorderCollisions(&body->points[pointIdx], dt, 0.5);
     }
 
     // satisfy contraints
 
-		v2 com = calcSoftBodyCenterOfMass(body->points, 8);
-		float volume = getVolume(body, 8);
+		v2 com = calcSoftBodyCenterOfMass(body->points, body->num_points);
+		float volume = getVolume(body, body->num_points);
 		body->volume = volume;
 
-    int n = sizeof(body->points) / sizeof(body->points[0]);
-
-
-    for (int i = 0; i < 8; i++) {
-      float x1 = body->points[i].position.x;
-      float y1 = body->points[i].position.y;
-      float x2 = body->points[(i + 1) % n].position.x;
-      float y2 = body->points[(i + 1) % n].position.y;
-
-      float r12d = sqrt(
-        (x1 - x2) * (x1 - x2) +
-        (y1 - y2) * (y1 - y2)
-      );
-
-      float pressurev = r12d * body->gasForce * (1.0f / volume);
-
-      v2 rest_distance = cf_safe_norm(body->points[(i + 1) % n].position - body->points[i].position) * body->restDistances[i];
-      v2 norm = cf_safe_norm(rest_distance);
-      v2 dir = cf_v2(norm.y, - norm.x);
-
-      body->points[i].velocity += dir * pressurev;
-      body->points[(i + 1) % n].velocity += dir * pressurev;
-
-    }
+    int n = body->num_points;
 
     // rest distance idx
-    for (int rdIdx = 0; rdIdx < 8; rdIdx++) {
+    for (int rdIdx = 0; rdIdx < body->num_points; rdIdx++) {
       int nextIdx = (rdIdx + 1) % n;
       float rd = body->restDistances[rdIdx];
 
@@ -720,25 +711,60 @@ void updateGasFilledSoftBodies(float dt) {
 
       v2 delta = b->position - a->position;
       float distance = cf_len(delta);
-      v2 direction = delta / distance;
+      v2 direction = cf_safe_norm(delta);
 
       v2 required_delta = delta * (rd / distance);
       v2 force = (required_delta - delta) * body->spring_force;
 
-      a->velocity -= force * dt;
-      b->velocity += force * dt;
+      // spring force
 
       float vrel = dot(b->velocity - a->velocity, direction);
-      float damping_factor = exp(-body->damping_factor * dt);
+      float damping_factor = exp(- body->damping_factor * dt);
       float new_vrel = vrel * damping_factor;
       float vrel_delta = new_vrel - vrel;
 
-      a->velocity -= direction * vrel_delta / 2.0;
-      b->velocity += direction * vrel_delta / 2.0;
+      // damping
+      a->force_accum -= direction * vrel_delta / 2.0 + (force * dt);
+      b->force_accum += direction * vrel_delta / 2.0 + (force * dt);
+
     }
 
-  }
+    for (int j = 0; j < body->num_points; j++) {
+      int nextIdx = (j + 1) % n;
 
+      Point *a = &body->points[j];
+      Point *b = &body->points[nextIdx];
+
+      float x1 = a->position.x;
+      float y1 = a->position.y;
+      float x2 = b->position.x;
+      float y2 = b->position.y;
+
+      float r12d = sqrt(
+        (x1 - x2) * (x1 - x2) +
+        (y1 - y2) * (y1 - y2)
+      );
+
+      float pressurev = r12d * body->gasForce * (1.0f / volume);
+
+      v2 rest_distance = cf_safe_norm(b->position - a->position);
+      // get the normal perpindicular to the point to apply force
+      v2 dir = cf_v2(rest_distance.y, - rest_distance.x);
+
+      a->force_accum += dir * pressurev;
+      b->force_accum += dir * pressurev;
+
+    }
+
+    for (int k = 0; k < body->num_points; k++) {
+      Point *p = &body->points[k];
+      if (p->force_accum.x == 0 || p->force_accum.y == 0) {
+        std::cout << "AUGHHHHHH" << std::endl;
+      }
+      p->velocity += p->force_accum;
+      std::cout << "Point " << k << " " << p->force_accum.x  << " " << p->force_accum.y << std::endl;
+    }
+  }
 }
 
 
@@ -777,14 +803,15 @@ void updateCar(float dt) {
   v2 back_wheel_axl = calculateWheelAxel(back_wheel);
   v2 front_wheel_axl = calculateWheelAxel(front_wheel);
 
+  // debug
   gameState.axls[0] = back_axl;
   gameState.axls[1] = front_axl;
   gameState.axls[2] = back_wheel_axl;
   gameState.axls[3] = front_wheel_axl;
-/*
+
   if (back_wheel_axl.x != back_axl.x && back_wheel_axl.y != back_axl.y) {
     v2 cor = back_axl - back_wheel_axl;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < back_wheel->num_points; i++) {
       int car_axl = back_axl_idx[i];
       int wheel_axl = i * 2 - 1;
 
@@ -795,7 +822,7 @@ void updateCar(float dt) {
 
   if (front_wheel_axl.x != front_axl.x && front_wheel_axl.y != front_axl.y) {
     v2 cor = front_axl - front_wheel_axl;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < back_wheel->num_points; i++) {
       int car_axl = front_axl_idx[i];
       int wheel_axl = i * 2 - 1;
 
@@ -803,16 +830,57 @@ void updateCar(float dt) {
       car.wheels[1]->points[wheel_axl].position += cor / 2.f;
     }
   }
-  */
 }
 
+void calcEnergy() {
+
+  SoftBody *car_body = &gameState.bodies[0];
+
+  float energy = 0;
+  for (int i = 0; i < car_body->num_points; i++) {
+    Point *p = &car_body->points[i];
+    energy += cf_len(p->velocity) * 0.5f;
+  }
+
+  energy /= car_body->num_points;
+  gameState.debug_energyCar = energy;
+
+  GasFilledSoftBody *back_wheel = &gameState.gas_bodies[0];
+  GasFilledSoftBody *front_wheel = &gameState.gas_bodies[1];
+
+  float energy_back = 0;
+  float energy_front = 0;
+
+  for (int i = 0; i < back_wheel->num_points; i++) {
+    energy_back = cf_len(back_wheel->points[i].velocity) * 0.5f;
+    energy_front = cf_len(front_wheel->points[i].velocity) * 0.5f;
+  }
+
+  energy_back /= back_wheel->num_points;
+  energy_front /= front_wheel->num_points;
+
+  gameState.debug_energyBackWheel = energy_back;
+  gameState.debug_energyFrontWheel = energy_front;
+
+}
+
+int frames = 0;
 void update(float dt) {
+
+  // if (frames > 0) return;
+
+  checkInputs(dt);
 
   updateSoftBodies(dt);
 
   updateGasFilledSoftBodies(dt);
 
-  updateCar(dt);
+
+//  updateCar(dt);
+  //
+  calcEnergy();
+
+  frames++;
 }
 
 void drawSoftBody(SoftBody *body) {
@@ -885,9 +953,9 @@ void drawSoftBody(SoftBody *body) {
 void drawGasFilledSoftBody(GasFilledSoftBody *body) {
 
   // draw lines
-  int n = sizeof(body->points) / sizeof(body->points[0]);
+  int n = body->num_points;
 
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < body->num_points; i++) {
     int nextIdx = (i + 1) % n;
 
     cf_draw_line(body->points[i].position, body->points[nextIdx].position , 0.5f);
@@ -895,12 +963,13 @@ void drawGasFilledSoftBody(GasFilledSoftBody *body) {
 
   // draw points
   draw_push_color(cf_color_red());
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < body->num_points; i++) {
     cf_draw_circle2(body->points[i].position, RADIUS, 1.0f);
   }
   draw_pop_color();
 
 }
+
 
 void main_loop(void *udata) {
   update(CF_DELTA_TIME_FIXED);
@@ -914,6 +983,7 @@ void initScene() {
   gameState.gas_bodies[1] = makeGasFilledSoftBody(cf_v2(20, 0), 300.0);
   gameState.k_springForce = 100.f;
   gameState.spring_damping = 10.f;
+  gameState.gas_force = 300.f;
   gameState.gravity = V2(0, -9.8f);
   gameState.debug_drawTargetShape = true;
   gameState.debug_drawCenterOfMass = true;

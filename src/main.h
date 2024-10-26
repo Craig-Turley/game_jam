@@ -16,6 +16,7 @@ struct Point {
   Cute::v2 last_position;
   Cute::v2 last_anchor_dist;
   Cute::v2 target_point;
+  Cute::v2 force_accum;
 };
 
 struct BoundingBox {
@@ -35,9 +36,9 @@ struct SoftBody {
 };
 
 struct GasFilledSoftBody {
-  Point points[8];
+  Point points[12];
   BoundingBox bounding_box;
-  float restDistances[8];
+  float restDistances[12];
   int num_points;
   float gasForce;
 	float spring_force;
@@ -55,13 +56,13 @@ struct Car {
 struct GameState
 {
 	SoftBody bodies[2];
-	SoftBody body1;
   GasFilledSoftBody gas_bodies[2];
   Car car;
 	float k_springForce;
 	float spring_damping;
 	int num_bodies;
   int num_gas_bodies;
+  float gas_force;
   Cute::v2 last_mousedown;
 	Cute::v2 gravity;
   Cute::v2 collision_point;
@@ -74,6 +75,9 @@ struct GameState
   bool game_over;
   bool nextstep;
   Cute::v2 axls[4]; //debug purposes`
+  float debug_energyCar;
+  float debug_energyBackWheel;
+  float debug_energyFrontWheel;
 };
 
 struct SoftBodyCollision {
