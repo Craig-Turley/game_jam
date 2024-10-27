@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cute.h>
+#include <vector>
 
 const float RADIUS = 1.0f;
 const float SCREEN_WIDTH = 640.f;
@@ -26,6 +27,15 @@ struct BoundingBox {
   float min_y;
 };
 
+struct Spring {
+  int indexA;
+  int indexB;
+  float rest_distance;
+  float spring_force;
+
+Spring(int idxA, int idxB, float restDist, float springForce)
+        : indexA(idxA), indexB(idxB), rest_distance(restDist), spring_force(springForce) {}};
+
 struct SoftBody {
 	Cute::v2 anchorVertex[12];
   Cute::v2 com;
@@ -33,11 +43,11 @@ struct SoftBody {
   int num_points;
   BoundingBox bounding_box;
   bool clicked;
+  std::vector<Spring> springs;
 };
 
 struct GasFilledSoftBody {
   Point points[12];
-  BoundingBox bounding_box;
   float restDistances[12];
   int num_points;
   float gasForce;
