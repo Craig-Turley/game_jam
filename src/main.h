@@ -13,10 +13,6 @@ struct Point {
 	Cute::v2 velocity;
 	float mass;
   float last_damping;
-  Cute::v2 last_velocity;
-  Cute::v2 last_position;
-  Cute::v2 last_anchor_dist;
-  Cute::v2 target_point;
   Cute::v2 force_accum;
 };
 
@@ -34,7 +30,8 @@ struct Spring {
   float spring_force;
 
 Spring(int idxA, int idxB, float restDist, float springForce)
-        : indexA(idxA), indexB(idxB), rest_distance(restDist), spring_force(springForce) {}};
+        : indexA(idxA), indexB(idxB), rest_distance(restDist), spring_force(springForce) {}
+};
 
 struct SoftBody {
 	Cute::v2 anchorVertex[12];
@@ -50,6 +47,7 @@ struct GasFilledSoftBody {
   Point points[12];
   float restDistances[12];
   int num_points;
+  std::vector<Spring> springs;
   float gasForce;
 	float spring_force;
 	float damping_factor;
