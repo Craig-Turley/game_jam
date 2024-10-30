@@ -73,8 +73,6 @@ struct GameState
   float gas_force;
   Cute::v2 last_mousedown;
 	Cute::v2 gravity;
-  Cute::v2 collision_point;
-  Cute::v2 farthest_point;
   bool debug_drawTargetShape;
   bool debug_drawCenterOfMass;
   bool debug_drawCollisionPoint;

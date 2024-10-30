@@ -183,7 +183,7 @@ GasFilledSoftBody makeGasFilledSoftBody(v2 center, float gasForce) {
   GasFilledSoftBody body = {};
 
   float radius = 5.f;
-  float spring_force = 1000.f;
+  float spring_force = 1200.f;
   int num_points = sizeof(body.points) / sizeof(body.points[0]);
 
   for (int i = 0; i < num_points; i++) {
@@ -210,7 +210,7 @@ GasFilledSoftBody makeGasFilledSoftBody(v2 center, float gasForce) {
   body.gasForce = gasForce;
   body.num_points = num_points;
   body.spring_force = spring_force;
-  body.damping_factor = gameState.spring_damping;
+  body.damping_factor = 300.f;
 
   return body;
 
@@ -420,7 +420,6 @@ void checkBodyCollision(Point *point, SoftBody *body2, int num_points1, int num_
 
     if (collision.happened) {
       ClosestPoint closest_point = findClosestPoint(point, body2, body2_com, num_points2);
-      gameState.collision_point = closest_point.point;
       //gameState.debug_drawCollisionPoint = true;
       //gameState.paused = true;
       handleCollision(point, closest_point,  0.5f);
@@ -470,6 +469,18 @@ v2 calculateWheelAxel(GasFilledSoftBody *wheel) {
   wheel_axl /= (float)cnt;
 
   return wheel_axl;
+}
+
+v2 calculateWeightedAverage(SoftBody *body, int *idxs, float *weights, int length) {
+  v2 avg = cf_v2(0, 0);
+  float weights_sum = 0;
+  for (int i = 0; i < length; i++) {
+    float weight = weights[i];
+    int idx = idxs[i];
+    avg+= body->points[idx].position * weight;
+    weights_sum += weight;
+  }
+  return avg / weights_sum;
 }
 
 void checkMouseDown(float dt) {
@@ -526,7 +537,7 @@ void checkMouseDown(float dt) {
       }
 
       if (collision_count % 2 != 0) {
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < body->num_points; i++) {
           body->points[i].position = mouse_center + body->anchorVertex[i];
         }
       } else {
@@ -798,7 +809,7 @@ void updateGasFilledSoftBodies(float dt) {
       b->velocity += force * dt;
 
       float vrel = dot(b->velocity - a->velocity, direction);
-      float damping_factor = exp(-gameState.spring_damping * dt);
+      float damping_factor = exp(- gameState.spring_damping * dt);
       float new_vrel = vrel * damping_factor;
       float vrel_delta = new_vrel - vrel;
 
@@ -861,64 +872,48 @@ void updateGasFilledSoftBodies(float dt) {
   }
 }
 
+void updateCar(Car *car, float dt) {
 
-void updateCar(float dt) {
-  Car car = gameState.car;
+  SoftBody *car_body = car->car_body;
+  GasFilledSoftBody *back_wheel = car->wheels[0];
+  GasFilledSoftBody *front_wheel = car->wheels[1];
 
-  int front_axl_idx[4] = {9, 8, 7, 5};
+  // weights and points for avg
   int back_axl_idx[4] = {10, 11, 0, 1};
-
-  SoftBody *car_body = car.car_body;
-
-  v2 com = calcSoftBodyCenterOfMass(car.car_body->points, car.car_body->num_points);
-
+  int front_axl_idx[4] = {9, 8, 7, 5};
   float weights[4] = {3, 2, 1, 1};
   float weights_sum = 7;
 
-  v2 back_axl = cf_v2(0, 0);
-  v2 front_axl = cf_v2(0, 0);
-  for (int i = 0; i < 4; i++) {
-    float weight = weights[i];
-    int back_index = back_axl_idx[i];
-    int front_index = front_axl_idx[i];
-
-    back_axl += car_body->points[back_index].position * weight;
-    front_axl += car_body->points[front_index].position * weight;
-  }
-
-  back_axl /= weights_sum;
-  front_axl /= weights_sum;
-
-  // lets get the axl for the wheels now;
-
-  GasFilledSoftBody *back_wheel = car.wheels[0];
-  GasFilledSoftBody *front_wheel = car.wheels[1];
-
+  // axls
+  v2 car_back_axl = calculateWeightedAverage(car_body, back_axl_idx, weights, 4);
+  v2 car_front_axl = calculateWeightedAverage(car_body, front_axl_idx, weights, 4);
   v2 back_wheel_axl = calculateWheelAxel(back_wheel);
   v2 front_wheel_axl = calculateWheelAxel(front_wheel);
 
-  // debug
-  gameState.axls[0] = back_axl;
-  gameState.axls[1] = front_axl;
+  gameState.axls[0] = car_back_axl;
+  gameState.axls[1] = car_front_axl;
   gameState.axls[2] = back_wheel_axl;
   gameState.axls[3] = front_wheel_axl;
 
-  if (back_wheel_axl.x != back_axl.x && back_wheel_axl.y != back_axl.y) {
-    v2 cor = back_axl - back_wheel_axl;
-    for (int i = 0; i < back_wheel->num_points; i++) {
-      int car_axl = back_axl_idx[i];
-
-      car.wheels[0]->points[i].position += cor;
-    }
+  // back axel
+  v2 back_delta = car_back_axl - back_wheel_axl;
+  for (int i = 0; i < 4; i++) {
+    Point *p1 = &car_body->points[back_axl_idx[i]];
+    p1->velocity -= back_delta / 2.0f;
   }
-
-  if (front_wheel_axl.x != front_axl.x && front_wheel_axl.y != front_axl.y) {
-    v2 cor = front_axl - front_wheel_axl;
-    for (int i = 0; i < back_wheel->num_points; i++) {
-      int car_axl = front_axl_idx[i];
-
-      car.wheels[1]->points[i].position += cor;
-    }
+  for (int i = 0; i < back_wheel->num_points; i++) {
+    Point *p0 = &back_wheel->points[i];
+    p0->velocity += back_delta / 2.0f;
+  }
+  // front axel
+  v2 front_delta = car_front_axl - front_wheel_axl;
+  for (int i = 0; i < 4; i++) {
+    Point *p1 = &car_body->points[front_axl_idx[i]];
+    p1->velocity -= front_delta / 2.0f;
+  }
+  for (int i = 0; i < front_wheel->num_points; i++) {
+    Point *p0 = &front_wheel->points[i];
+    p0->velocity += front_delta / 2.0f;
   }
 }
 
@@ -965,7 +960,7 @@ void update(float dt) {
 
   updateGasFilledSoftBodies(dt);
 
-  //updateCar(dt);
+  updateCar(&gameState.car, dt);
   //
   calcEnergy();
 
@@ -1032,13 +1027,6 @@ void drawSoftBody(SoftBody *body) {
     draw_pop_color();
   }
 
-  if (gameState.debug_drawCollisionPoint) {
-    draw_push_color(cf_color_orange());
-    cf_draw_circle2(gameState.collision_point, RADIUS, 1.f);
-    cf_draw_pop_color();
-    cf_draw_circle2(gameState.farthest_point, RADIUS, 1.f);
-  }
-
   draw_pop_color();
 
   draw_push_color(cf_color_orange());
@@ -1075,17 +1063,6 @@ void drawGasFilledSoftBody(GasFilledSoftBody *body) {
   }
   draw_pop_color();
 
-}
-
-void drawDirs() {
-  for (int i = 0; i < 12; i++) {
-    GasFilledSoftBody *b = &gameState.gas_bodies[i];
-    for (int j = 0; j < 12; j++) {
-      draw_push_color(cf_color_purple());
-      cf_draw_circle2(b->points[j].force_accum + b->points[j].position, RADIUS, 1.f);
-      cf_draw_pop_color();
-    }
-  }
 }
 
 void main_loop(void *udata) {
