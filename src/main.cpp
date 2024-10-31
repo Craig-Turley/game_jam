@@ -191,7 +191,6 @@ GasFilledSoftBody makeGasFilledSoftBody(v2 center, float gasForce) {
     body.points[i].position = (cf_v2(cos(theta), sin(theta)) * radius) + center;
     body.points[i].velocity = cf_v2(0,0);
     body.points[i].mass = 1.0f;
-    body.points[i].force_accum = cf_v2(0,0);
   }
 
   for (int rdIdx = 0; rdIdx < num_points; rdIdx++) {
@@ -899,21 +898,29 @@ void updateCar(Car *car, float dt) {
   v2 back_delta = car_back_axl - back_wheel_axl;
   for (int i = 0; i < 4; i++) {
     Point *p1 = &car_body->points[back_axl_idx[i]];
-    p1->velocity -= back_delta / 2.0f;
+    p1->prev_position = p1->position;
+    p1->position -= back_delta / 2.0f;
+    p1->velocity += (p1->position - p1->prev_position) / dt;
   }
   for (int i = 0; i < back_wheel->num_points; i++) {
     Point *p0 = &back_wheel->points[i];
-    p0->velocity += back_delta / 2.0f;
+    p0->prev_position = p0->position;
+    p0->position += back_delta / 2.0f;
+    p0->velocity += (p0->position - p0->prev_position) / dt;
   }
   // front axel
   v2 front_delta = car_front_axl - front_wheel_axl;
   for (int i = 0; i < 4; i++) {
     Point *p1 = &car_body->points[front_axl_idx[i]];
-    p1->velocity -= front_delta / 2.0f;
+    p1->prev_position = p1->position;
+    p1->position -= front_delta / 2.0f;
+    p1->velocity += (p1->position - p1->prev_position) / dt;
   }
   for (int i = 0; i < front_wheel->num_points; i++) {
     Point *p0 = &front_wheel->points[i];
-    p0->velocity += front_delta / 2.0f;
+    p0->prev_position = p0->position;
+    p0->position += front_delta / 2.0f;
+    p0->velocity += (p0->position - p0->prev_position) / dt;
   }
 }
 

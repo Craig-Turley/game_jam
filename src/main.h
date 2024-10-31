@@ -11,9 +11,9 @@ const float INF = std::numeric_limits<float>::infinity();
 struct Point {
 	Cute::v2 position;
 	Cute::v2 velocity;
+  Cute::v2 prev_position;
 	float mass;
   float last_damping;
-  Cute::v2 force_accum;
 };
 
 struct BoundingBox {
