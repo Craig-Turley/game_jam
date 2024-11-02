@@ -12,7 +12,8 @@ struct Point {
 	Cute::v2 position;
 	Cute::v2 velocity;
   Cute::v2 prev_position;
-	float mass;
+  Cute::v2 target_point;
+  float mass;
   float last_damping;
 };
 
