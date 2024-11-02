@@ -424,6 +424,13 @@ void checkBodyCollision(Point *point, SoftBody *body2, int num_points1, int num_
   }
 }
 
+float calcRotationAngle(v2 axel, v2 prev, v2 cur) {
+  v2 r = axel - prev;
+  float a = dot(r, cur);
+  float b = cross(r, cur);
+  return -atan2(b, a);
+}
+
 float calcSoftBodyRotationAngle(SoftBody *body, v2 com) {
   // F = -kx * dt
   // add F to velocity
@@ -576,14 +583,17 @@ void checkInputs(float dt) {
         if (cf_len(vrel) > 200.f) { break; }
         p->velocity += dir * speed;
       }
+
     }
 
   if (!cf_key_down(CF_KEY_D) || !cf_key_down(CF_KEY_A)) {
 
       for (int i = 0; i < wheel->num_points; i++) {
         Point *p = &wheel->points[i];
-        // TODO interpolate to 0 
+        v2 dir = cf_safe_norm(p->prev_position - p->position); 
+        p->velocity -= dir * speed;
       }
+      
   }
 
   }
