@@ -1,4 +1,5 @@
 #include "main.h"
+#include "SDL_test_fuzzer.h"
 #include "cute_app.h"
 #include "cute_color.h"
 #include "cute_draw.h"
@@ -14,6 +15,17 @@ using namespace Cute;
 
 GameState gameState;
 
+Point MakePoint(v2 pos) {
+  Point p;
+
+  p.position = pos;
+  p.velocity = V2ZERO; 
+  p.prev_position = pos;
+  p.mass = 1;
+
+  return p;
+}
+
 bool inBoundingBox(SoftBody *body, Point *point) {
   float max_x = body->bounding_box.max_x;
   float max_y = body->bounding_box.max_y;
@@ -24,7 +36,7 @@ bool inBoundingBox(SoftBody *body, Point *point) {
   return (x >= min_x && x <= max_x) && (y >= min_y && y <= max_x);
 }
 
-v2 calcSoftBodyCenterOfMass(Point *points, int size) {
+v2 calc_soft_body_center_of_mass(Point *points, int size) {
   v2 com = {};
   for (int i = 0; i < size; i++) {
     com += points[i].position;
@@ -33,29 +45,17 @@ v2 calcSoftBodyCenterOfMass(Point *points, int size) {
   return com;
 }
 
-SoftBody makeSoftBody(int offset) {
+SoftBody makeSoftBody(v2 center) {
   SoftBody body = {};
 
-#if 1
-  body.points[0].position = cf_v2(-10 + offset, -20);
-  body.points[1].position = cf_v2(-10 + offset, 10);
-  body.points[2].position = cf_v2(10 + offset, 10);
-  body.points[3].position = cf_v2(10 + offset, -10);
-#else
-  body.points[0].position = cf_v2(-3, -5);
-  body.points[1].position = cf_v2(-5, 7);
-  body.points[2].position = cf_v2(10, 10);
-  body.points[3].position = cf_v2(5, -7);
-#endif
-
-  body.points[0].mass = 5;
-  body.points[1].mass = 5;
-  body.points[2].mass = 5;
-  body.points[3].mass = 5;
-
+  body.points.push_back(MakePoint(cf_v2(-10, -10) + center));
+  body.points.push_back(MakePoint(cf_v2(-10, 10) + center));
+  body.points.push_back(MakePoint(cf_v2(10, 10) + center));
+  body.points.push_back(MakePoint(cf_v2(10, -10) + center));
+  
   body.clicked = false;
 
-  v2 com = calcSoftBodyCenterOfMass(body.points, 4);
+  v2 com = calc_soft_body_center_of_mass(body.points.data(), 4);
 
    body.bounding_box.max_x = body.points[0].position.x;
    body.bounding_box.max_y = body.points[0].position.y;
@@ -69,7 +69,7 @@ SoftBody makeSoftBody(int offset) {
     body.bounding_box.min_y = cf_max(body.bounding_box.min_y, body.points[i].position.y);
 
     v2 vec = body.points[i].position - com;
-    body.anchorVertex[i] = vec;
+    body.anchor_vertex.push_back(vec);
   }
 
   body.num_points = 4;
@@ -77,25 +77,26 @@ SoftBody makeSoftBody(int offset) {
   return body;
 }
 
-SoftBody makeCarBody(v2 center) {
+
+SoftBody MakeCarBody(v2 center) {
   SoftBody body = {};
 
-  body.points[0].position = cf_v2(-8, 0 ) * 6.5 + center;
-  body.points[1].position = cf_v2(-4, 0 ) * 6.5 + center;
-  body.points[2].position = cf_v2(-2, 4 ) * 6.5 + center;
-  body.points[3].position = cf_v2(0, 4 ) * 6.5 + center;
-  body.points[4].position = cf_v2(2, 4 ) * 6.5 + center;
-  body.points[5].position = cf_v2(4, 0 ) * 6.5 + center;
-  body.points[6].position = cf_v2(6, 0 ) * 6.5 + center;
-  body.points[7].position = cf_v2(8, 0 ) * 6.5 + center;
-  body.points[8].position = cf_v2(8, -3 ) * 6.5 + center;
-  body.points[9].position = cf_v2(4, -4 ) * 6.5 + center;
-  body.points[10].position = cf_v2(-4, -4 ) * 6.5 + center;
-  body.points[11].position = cf_v2(-8, -3 ) * 6.5 + center;
+  body.points.push_back(MakePoint(cf_v2(-8, 0 ) * 6.5 + center));
+  body.points.push_back(MakePoint(cf_v2(-4, 0 ) * 6.5 + center));
+  body.points.push_back(MakePoint(cf_v2(-2, 4 ) * 6.5 + center));
+  body.points.push_back(MakePoint(cf_v2(0, 4 ) * 6.5 + center));
+  body.points.push_back(MakePoint(cf_v2(2, 4 ) * 6.5 + center));
+  body.points.push_back(MakePoint(cf_v2(4, 0 ) * 6.5 + center));
+  body.points.push_back(MakePoint(cf_v2(6, 0 ) * 6.5 + center));
+  body.points.push_back(MakePoint(cf_v2(8, 0 ) * 6.5 + center));
+  body.points.push_back(MakePoint(cf_v2(8, -3 ) * 6.5 + center));
+  body.points.push_back(MakePoint(cf_v2(4, -4 ) * 6.5 + center));
+  body.points.push_back(MakePoint(cf_v2(-4, -4 ) * 6.5 + center));
+  body.points.push_back(MakePoint(cf_v2(-8, -3 ) * 6.5 + center));
 
   body.clicked = false;
 
-  v2 com = calcSoftBodyCenterOfMass(body.points, 12);
+  v2 com = calc_soft_body_center_of_mass(body.points.data(), 12);
 
   body.bounding_box.max_x = body.points[0].position.x;
   body.bounding_box.max_y = body.points[0].position.y;
@@ -109,7 +110,7 @@ SoftBody makeCarBody(v2 center) {
     body.bounding_box.min_y = cf_max(body.bounding_box.min_y, body.points[i].position.y);
 
     v2 vec = body.points[i].position - com;
-    body.anchorVertex[i] = vec;
+    body.anchor_vertex.push_back(vec);
   }
 
   body.num_points = 12;
@@ -178,42 +179,44 @@ SoftBody makeCarBody(v2 center) {
   return body;
 }
 
-GasFilledSoftBody makeGasFilledSoftBody(v2 center, float gasForce) {
+PressureBody MakePressureBody(v2 center, float gas_force, int num_points) {
 
-  GasFilledSoftBody body = {};
+  PressureBody body = {};
 
+  // todo incorporate this into constructor
   float radius = 5.f;
   float spring_force = 1200.f;
-  int num_points = sizeof(body.points) / sizeof(body.points[0]);
 
+  // making a circle
   for (int i = 0; i < num_points; i++) {
     float theta = (float)i * 2.0 * M_PI / (float)num_points;
-    body.points[i].position = (cf_v2(cos(theta), sin(theta)) * radius) + center;
-    body.points[i].velocity = cf_v2(0,0);
-    body.points[i].mass = 1.0f;
+    body.points.push_back(MakePoint((cf_v2(cos(theta), sin(theta)) * radius) + center));
   }
 
+  // Setting rest distances for springs
   for (int rdIdx = 0; rdIdx < num_points; rdIdx++) {
-    body.restDistances[rdIdx] = cf_len(body.points[(rdIdx + 1) % num_points].position - body.points[rdIdx].position);
+    body.rest_distance.push_back(cf_len(body.points[(rdIdx + 1) % num_points].position - body.points[rdIdx].position));
   }
 
-  // Have the option here to add internal springs for more stabliliy within the structure
-  // Not sure if I like the behavior of the wheels with the extra interal springs
+  // have the option here to add internal springs for more stabliliy within the structure
+  // not sure if I like the behavior of the wheels with the extra interal springs
   for (int sIdx = 0; sIdx < num_points; sIdx++) {
     int nextIdx = (sIdx + 4) % num_points;
     body.springs.emplace_back(sIdx, nextIdx, cf_len(body.points[nextIdx].position - body.points[sIdx].position), 25.f);
   }
 
-  body.gasForce = gasForce;
+  // rest of points
+  body.gas_force = gas_force;
   body.num_points = num_points;
   body.spring_force = spring_force;
   body.damping_factor = 300.f;
+  body.previous_angle = 0.f;
 
   return body;
 
 }
 
-void checkBorderCollisions(Point *p, float dt, float elasticity) {
+void check_border_collisions(Point *p, float dt, float elasticity) {
   if (p->position.y < -(SCREEN_HEIGHT / 2)) {
     p->position.y = -(SCREEN_HEIGHT / 2.f);
 
@@ -368,7 +371,7 @@ ClosestPoint findClosestPoint(Point *a, SoftBody *body, v2 com, int num_point) {
     NULL,
   };
 
-  int n = sizeof(body->points) / sizeof(body->points[0]);
+  int n = body->points.size();
 
   for (int i = 0; i < num_point; i++) {
     int next_idx = (i + 1) % n;
@@ -402,7 +405,7 @@ ClosestPoint findClosestPoint(Point *a, SoftBody *body, v2 com, int num_point) {
 void checkBodyCollision(Point *point, SoftBody *body2, int num_points1, int num_points2) {
 
   // find com for body2
-  v2 body2_com = calcSoftBodyCenterOfMass(body2->points, num_points2);
+  v2 body2_com = calc_soft_body_center_of_mass(body2->points.data(), num_points2);
 
   for (int i = 0; i < num_points1; i++) {
     // current point being tested
@@ -424,22 +427,15 @@ void checkBodyCollision(Point *point, SoftBody *body2, int num_points1, int num_
   }
 }
 
-float calcRotationAngle(v2 axel, v2 prev, v2 cur) {
-  v2 r = axel - prev;
-  float a = dot(r, cur);
-  float b = cross(r, cur);
-  return -atan2(b, a);
-}
-
-float calcSoftBodyRotationAngle(SoftBody *body, v2 com) {
+float calc_soft_body_rotation_angle(SoftBody *body, v2 com) {
   // F = -kx * dt
   // add F to velocity
   float a = 0.f;
   float b = 0.f;
   for (int i = 0; i < body->num_points; i++) {
     v2 r = body->points[i].position - com;
-    a += dot(r, body->anchorVertex[i]);
-    b += cross(r, body->anchorVertex[i]);
+    a += dot(r, body->anchor_vertex[i]);
+    b += cross(r, body->anchor_vertex[i]);
   }
   float angle = -atan2(b, a);
   return angle;
@@ -451,7 +447,7 @@ v2 rotate(v2 point, float angle) {
   return rotatedPoint;
 }
 
-v2 calcSoftBodyAverageVelocity(Point *points, int length) {
+v2 calc_soft_body_average_velocity(Point *points, int length) {
   v2 vel = {};
   for (int i = 0; i < length; i++) {
     vel += points[i].velocity;
@@ -460,12 +456,12 @@ v2 calcSoftBodyAverageVelocity(Point *points, int length) {
   return vel;
 }
 
-v2 calculateWheelAxel(GasFilledSoftBody *wheel) {
+v2 calculateWheelAxel(PressureBody wheel) {
   v2 wheel_axl = cf_v2(0, 0);
   int cnt = 0;
 
-  for (int i = 0; i < wheel->num_points; i += 2) {
-    wheel_axl += wheel->points[i].position;
+  for (int i = 0; i < wheel.num_points; i += 2) {
+    wheel_axl += wheel.points[i].position;
 
     cnt++;
   }
@@ -499,10 +495,10 @@ void checkMouseDown(float dt) {
 
     for (int i = 0; i < gameState.num_bodies; i++) {
 
-      SoftBody *body = &gameState.bodies[i];
+      SoftBody *body = gameState.bodies[i];
 
       // find com for body
-      v2 com = calcSoftBodyCenterOfMass(body->points, body->num_points);
+      v2 com = calc_soft_body_center_of_mass(body->points.data(), body->num_points);
 
       // initialize longest point
       v2 farthest_point = com - body->points[0].position;
@@ -522,7 +518,7 @@ void checkMouseDown(float dt) {
       v2 b = (farthest_point + com) * 2;
 
       // all points are now relative to 0,0
-      int n = sizeof(body->points) / sizeof(body->points[i]);
+      int n = body->points.size(); 
 
       int collision_count = 0;
       for (int j = 0; j < body->num_points; j++) {
@@ -542,7 +538,7 @@ void checkMouseDown(float dt) {
 
       if (collision_count % 2 != 0) {
         for (int i = 0; i < body->num_points; i++) {
-          body->points[i].position = mouse_center + body->anchorVertex[i];
+          body->points[i].position = mouse_center + body->anchor_vertex[i];
         }
       } else {
         body->clicked = false;
@@ -553,204 +549,208 @@ void checkMouseDown(float dt) {
   }
 }
 
+const float NEG_PI_OVER_ONE_POINT_TWO = (- M_PI) / 1.2f;
+
+float absf(float x) {
+  if (x > 0.f) { return x; }
+  return x * -1.f;
+}
+
 void checkInputs(float dt) {
-  float speed = 30.f;
+  const float acceleration = 10.f;
+  const float maxOmega = 5.f;
+ 
 
   for (int i = 0; i < 2; i++) {
-    GasFilledSoftBody *wheel = &gameState.gas_bodies[i];
-    v2 axel = calculateWheelAxel(wheel);
+    PressureBody *wheel = gameState.p_bodies[i];
+    v2 axel = calculateWheelAxel(*wheel);
+    float mDerivedOmega = 0.0;  
 
-    if (cf_key_down(CF_KEY_D)){
+    if (cf_key_down(CF_KEY_A)) {
+      // spin left
+      mDerivedOmega -= 1.f;
 
-      for (int i = 0; i < wheel->num_points; i++) {
-        Point *p = &wheel->points[i];
-        v2 targetVertex = axel + rotate(p->position - axel, 25); 
-        v2 dir = cf_safe_norm(targetVertex - p->position);
-        v2 vrel = dir * cf_dot(dir, p->velocity);
-        if (cf_len(vrel) > 200.f) { break; }
-        p->velocity += dir * speed;
+      if (mDerivedOmega < - maxOmega) {
+        mDerivedOmega = - maxOmega;
       }
-    }
+    } else if (cf_key_down(CF_KEY_D)) {
+      // spin right
+      mDerivedOmega += 1.f;
 
-
-    if (cf_key_down(CF_KEY_A)){
-
-      for (int i = 0; i < wheel->num_points; i++) {
-        Point *p = &wheel->points[i];
-        v2 targetVertex = axel + rotate(p->position - axel, -25); 
-        v2 dir = cf_safe_norm(targetVertex - p->position);
-        v2 vrel = dir * cf_dot(dir, p->velocity);
-        if (cf_len(vrel) > 200.f) { break; }
-        p->velocity += dir * speed;
+      if (mDerivedOmega > maxOmega) {
+        mDerivedOmega = maxOmega;
       }
-
-    }
-
-  if (!cf_key_down(CF_KEY_D) || !cf_key_down(CF_KEY_A)) {
-
-      for (int i = 0; i < wheel->num_points; i++) {
-        Point *p = &wheel->points[i];
-        v2 dir = cf_safe_norm(p->prev_position - p->position); 
-        p->velocity -= dir * speed;
-      }
-      
-  }
-
+     } //else if (!cf_key_down(CF_KEY_A) && !cf_key_down(CF_KEY_D)) {
+    //   // damp the force
+    //   mDerivedOmega *= 0.97f;
+    // }
+ 
+    float omegaFactor = (absf(((mDerivedOmega > 0) ? maxOmega : -maxOmega) - mDerivedOmega) / maxOmega);   
   }
 }
 
-void updateSoftBodies(float dt) {
+float rand_float(float min, float max) {
+    return min + (rand() / (float)RAND_MAX) * (max - min);
+}
 
+v2 randomOffset() {
+  return cf_v2(rand_float(-300, 300), 0);
+}
+
+void addSoftBody() {
+  SoftBody *newBody = new SoftBody(makeSoftBody(randomOffset()));
+
+  gameState.bodies.push_back(newBody);
+  gameState.num_bodies++;
+}
+
+void update_soft_body(SoftBody *body, float dt) {
+
+  checkMouseDown(dt);
+
+  float max_x = body->points[0].position.x;
+  float max_y = body->points[0].position.y;
+  float min_x = body->points[0].position.x;
+  float min_y = body->points[0].position.y;
+
+  // gravity integration
+  for (int i = 0; i < body->num_points; i++) {
+    Point *p = &body->points[i];
+
+    // add grav if its not clicked
+    if (!body->clicked) {
+      p->velocity += gameState.gravity * dt;
+      p->position += p->velocity * dt;
+    }
+
+    max_x = cf_max(max_x, body->points[i].position.x);
+    max_y = cf_max(max_y, body->points[i].position.y);
+    min_x = cf_min(min_x, body->points[i].position.x);
+    min_y = cf_min(min_y, body->points[i].position.y);
+  }
+
+  // set max and min points for bounding box
+
+  body->bounding_box.max_x = max_x;
+  body->bounding_box.max_y = max_y;
+  body->bounding_box.min_x = min_x;
+  body->bounding_box.min_y = min_y;
+
+  v2 com = calc_soft_body_center_of_mass(body->points.data(), body->num_points);
+
+  // collision
   for (int i = 0; i < gameState.num_bodies; i++) {
-
-    SoftBody *body = &gameState.bodies[i];
-
-    checkMouseDown(dt);
-
-    float max_x = body->points[0].position.x;
-    float max_y = body->points[0].position.y;
-    float min_x = body->points[0].position.x;
-    float min_y = body->points[0].position.y;
-
-    // gravity integration
-    for (int i = 0; i < body->num_points; i++) {
-      Point *p = &body->points[i];
-
-      // add grav if its not clicked
-      if (!body->clicked) {
-        p->velocity += gameState.gravity * dt;
-        p->position += p->velocity * dt;
-      }
-
-      max_x = cf_max(max_x, body->points[i].position.x);
-      max_y = cf_max(max_y, body->points[i].position.y);
-      min_x = cf_min(min_x, body->points[i].position.x);
-      min_y = cf_min(min_y, body->points[i].position.y);
-    }
-
-    // set max and min points for bounding box
-
-    body->bounding_box.max_x = max_x;
-    body->bounding_box.max_y = max_y;
-    body->bounding_box.min_x = min_x;
-    body->bounding_box.min_y = min_y;
-
-    v2 com = calcSoftBodyCenterOfMass(body->points, body->num_points);
-
-    // collision
-    for (int i = 0; i < gameState.num_bodies; i++) {
-      SoftBody *body = &gameState.bodies[i];
-
-      for (int i = 0; i < body->num_points; i++) {
-        Point *point = &body->points[i];
-        checkBorderCollisions(point, dt, -0.5);
-      }
-
-      for (int j = 0; j < gameState.num_bodies; j++) {
-        if (j == i) {
-          // skip self collision
-          continue;
-        }
-        SoftBody *body2 = &gameState.bodies[j];
-
-        for (int k = 0; k < body->num_points; k++) {
-          Point *point = &body->points[k];
-          checkBodyCollision(point, body2, body->num_points, body2->num_points);
-        }
-      }
-    }
-
-    // constraints
-    float angle = calcSoftBodyRotationAngle(body, com);
-    v2 avg_vel = calcSoftBodyAverageVelocity(body->points, body->num_points);
+    SoftBody *body = gameState.bodies[i];
 
     for (int i = 0; i < body->num_points; i++) {
-
       Point *point = &body->points[i];
-      v2 targetVertex = com + rotate(body->anchorVertex[i], angle);
-      v2 x = targetVertex - point->position;
-      v2 target_vertex_corrected = body->anchorVertex[i] + com;
-
-      // spring force
-      v2 spring_force = x * gameState.k_springForce * dt;
-      point->velocity += spring_force;
+      check_border_collisions(point, dt, -0.5);
     }
 
-   // Update springs
-    for (int springIndex = 0; springIndex < body->springs.size(); springIndex++) {
-      Spring s = body->springs[springIndex];
-      Point* c = &body->points[s.indexA];
-      Point* d = &body->points[s.indexB];
+    for (int j = 0; j < gameState.num_bodies; j++) {
+      if (j == i) {
+        // skip self collision
+        continue;
+      }
+      SoftBody *body2 = gameState.bodies[j];
 
-      v2 delta = d->position - c->position;
-      float distance = cf_len(delta);
-      v2 direction = cf_safe_norm(delta);
-
-      v2 required_delta = delta * (s.rest_distance / distance);
-      v2 force = (required_delta - delta) * s.spring_force;
-
-      // spring force
-      c->velocity -= force * dt;
-      d->velocity += force * dt;
-
-      float vrel = dot(d->velocity - c->velocity, direction);
-      float damping_factor = exp(-gameState.spring_damping * dt);
-      float new_vrel = vrel * damping_factor;
-      float vrel_delta = new_vrel - vrel;
-
-      // damping
-      c->velocity -= direction * (vrel_delta / 2.0);
-      d->velocity += direction * (vrel_delta / 2.0);
+      for (int k = 0; k < body->num_points; k++) {
+        Point *point = &body->points[k];
+        checkBodyCollision(point, body2, body->num_points, body2->num_points);
+      }
     }
-    // bascially just damping between every edge treating it as a spring
+  }
 
-    int n = body->num_points;
+  // constraints
+  float angle = calc_soft_body_rotation_angle(body, com);
+  v2 avg_vel = calc_soft_body_average_velocity(body->points.data(), body->num_points);
 
-    for (int i = 0; i < body->num_points; i++) {
+  for (int i = 0; i < body->num_points; i++) {
 
-      Point *point = &body->points[i];
-      // this gets the next point to calc rest distance
-      int next_idx = (i + 1) % n;
-      Point *next_point = &body->points[next_idx];
-      v2 rest_distance_vec = body->anchorVertex[next_idx] - body->anchorVertex[i];
-      float rest_distance = cf_len(rest_distance_vec);
+    Point *point = &body->points[i];
+    v2 targetVertex = com + rotate(body->anchor_vertex[i], angle);
+    v2 x = targetVertex - point->position;
+    v2 target_vertex_corrected = body->anchor_vertex[i] + com;
 
-      v2 p0 = point->position;
-      v2 p1 = next_point->position;
-      v2 v0 = point->velocity;
-      v2 v1 = next_point->velocity;
+    // spring force
+    v2 spring_force = x * gameState.k_springForce * dt;
+    point->velocity += spring_force;
+  }
 
-      v2 delta = p1 - p0;
-      v2 direction = cf_safe_norm(delta);
+ // Update springs
+  for (int springIndex = 0; springIndex < body->springs.size(); springIndex++) {
+    Spring s = body->springs[springIndex];
+    Point* c = &body->points[s.indexA];
+    Point* d = &body->points[s.indexB];
 
-      float vrel = dot(v1 - v0, direction);
-      float damping_force = expf(-gameState.spring_damping * dt);
-      float new_vrel = vrel * damping_force;
-      float vrel_delta = new_vrel - vrel;
+    v2 delta = d->position - c->position;
+    float distance = cf_len(delta);
+    v2 direction = cf_safe_norm(delta);
 
-      point->velocity -= direction * (vrel_delta / 2.0);
-      next_point->velocity += direction * (vrel_delta / 2.0);
-    }
+    v2 required_delta = delta * (s.rest_distance / distance);
+    v2 force = (required_delta - delta) * s.spring_force;
+
+    // spring force
+    c->velocity -= force * dt;
+    d->velocity += force * dt;
+
+    float vrel = dot(d->velocity - c->velocity, direction);
+    float damping_factor = exp(-gameState.spring_damping * dt);
+    float new_vrel = vrel * damping_factor;
+    float vrel_delta = new_vrel - vrel;
+
+    // damping
+    c->velocity -= direction * (vrel_delta / 2.0);
+    d->velocity += direction * (vrel_delta / 2.0);
+  }
+  // bascially just damping between every edge treating it as a spring
+
+  int n = body->num_points;
+
+  for (int i = 0; i < body->num_points; i++) {
+
+    Point *point = &body->points[i];
+    // this gets the next point to calc rest distance
+    int next_idx = (i + 1) % n;
+    Point *next_point = &body->points[next_idx];
+    v2 rest_distance_vec = body->anchor_vertex[next_idx] - body->anchor_vertex[i];
+    float rest_distance = cf_len(rest_distance_vec);
+
+    v2 p0 = point->position;
+    v2 p1 = next_point->position;
+    v2 v0 = point->velocity;
+    v2 v1 = next_point->velocity;
+
+    v2 delta = p1 - p0;
+    v2 direction = cf_safe_norm(delta);
+
+    float vrel = dot(v1 - v0, direction);
+    float damping_force = expf(-gameState.spring_damping * dt);
+    float new_vrel = vrel * damping_force;
+    float vrel_delta = new_vrel - vrel;
+
+    point->velocity -= direction * (vrel_delta / 2.0);
+    next_point->velocity += direction * (vrel_delta / 2.0);
   }
 }
 
-float getVolume(GasFilledSoftBody *body, int num_points) {
+float get_volume(PressureBody body) {
 	float volume = 0;
 
-	int n = body->num_points;
+	int n = body.num_points;
 
-	for (int i = 0; i < num_points; i++) {
-		float x1 = body->points[i].position.x;
-		float y1 = body->points[i].position.y;
-		float x2 = body->points[(i + 1) % n].position.x;
-		float y2 = body->points[(i + 1) % n].position.y;
+	for (int i = 0; i < n; i++) {
+		float x1 = body.points[i].position.x;
+		float y1 = body.points[i].position.y;
+		float x2 = body.points[(i + 1) % n].position.x;
+		float y2 = body.points[(i + 1) % n].position.y;
 
 		float r12d = sqrt(
       (x1 - x2) * (x1 - x2) +
       (y1 - y2) * (y1 - y2)
     );
 
-    v2 norm = cf_safe_norm(body->points[(i + 1) % n].position - body->points[i].position);
+    v2 norm = cf_safe_norm(body.points[(i + 1) % n].position - body.points[i].position);
 
     volume += 0.5f * fabs(x1 - x2) * fabs(norm.y) * r12d;
 	}
@@ -764,114 +764,130 @@ v2 calculateNormal(v2 a, v2 b) {
   return cf_v2(- delta.y, delta.x);
 }
 
-void updateGasFilledSoftBodies(float dt) {
-
+void deriveWheelAngle(float dt) {
+  float angle = 0.f;
   for (int i = 0; i < gameState.num_gas_bodies; i++) {
-
-    // integrate gravity
-    GasFilledSoftBody *body = &gameState.gas_bodies[i];
-    body->gasForce = gameState.gas_force;
-
-    for (int g = 0; g < body->num_points; g++) {
-      Point *p = &body->points[g];
-      p->velocity += gameState.gravity * dt;
-      p->position += p->velocity * dt;
-    }
-
-    //check collision
-    for (int pointIdx = 0; pointIdx < body->num_points; pointIdx++) {
-      checkBorderCollisions(&body->points[pointIdx], dt, 0.5);
-    }
-
-    // satisfy contraints
-
-    for (int rdIdx = 0; rdIdx < body->num_points; rdIdx++) {
-      int nextIdx = (rdIdx + 1) % body->num_points;
-      float rd = body->restDistances[rdIdx];
-
-      Point *a = &body->points[rdIdx];
-      Point *b = &body->points[nextIdx];
-
-      v2 delta = b->position - a->position;
-      float distance = cf_len(delta);
-      v2 direction = cf_safe_norm(delta);
-
-      v2 required_delta = delta * (rd / distance);
-      v2 force = (required_delta - delta) * body->spring_force;
-
-      // spring force
-      a->velocity -= force * dt;
-      b->velocity += force * dt;
-
-      float vrel = dot(b->velocity - a->velocity, direction);
-      float damping_factor = exp(- gameState.spring_damping * dt);
-      float new_vrel = vrel * damping_factor;
-      float vrel_delta = new_vrel - vrel;
-
-      // damping
-      a->velocity -= direction * (vrel_delta / 2.0);
-      b->velocity += direction * (vrel_delta / 2.0);
-    }
-
-
-    //apply gas force
-		float volume = getVolume(body, body->num_points);
-
-    for (int j = 0; j < body->num_points; j++) {
-      Point *p0 = &body->points[j];
-      Point *p1 = &body->points[(j + 1) % body->num_points];
-
-      float x0 = p0->position.x;
-      float y0 = p0->position.y;
-      float x1 = p1->position.x;
-      float y1 = p1->position.y;
-
-      float r12d = sqrt(
-        (x0 - x1) * (x0 - x1) +
-        (y0 - y1) * (y0 - y1)
-      );
-
-      float pressurev = r12d * body->gasForce * (1.0f / volume);
-      v2 normal = calculateNormal(p1->position, p0->position);
-
-      p0->velocity += normal * pressurev;
-      p1->velocity += normal * pressurev;
-    }
-
-    // apply springs
-    for (int springIndex = 0; springIndex < body->springs.size(); springIndex++) {
-      Spring s = body->springs[springIndex];
-      Point* c = &body->points[s.indexA];
-      Point* d = &body->points[s.indexB];
-
-      v2 delta = d->position - c->position;
-      float distance = cf_len(delta);
-      v2 direction = cf_safe_norm(delta);
-
-      v2 required_delta = delta * (s.rest_distance / distance);
-      v2 force = (required_delta - delta) * s.spring_force;
-
-      // spring force
-      c->velocity -= force * dt;
-      d->velocity += force * dt;
-
-      float vrel = dot(d->velocity - c->velocity, direction);
-      float damping_factor = exp(-gameState.spring_damping * dt);
-      float new_vrel = vrel * damping_factor;
-      float vrel_delta = new_vrel - vrel;
-
-      // damping
-      c->velocity -= direction * (vrel_delta / 2.0);
-      d->velocity += direction * (vrel_delta / 2.0);
-    }
+    PressureBody *wheel = gameState.p_bodies[i]; 
+    v2 center = calculateWheelAxel(*wheel); 
+    
+    
   }
 }
 
-void updateCar(Car *car, float dt) {
+void update_pressure_body(PressureBody *body, float dt) {
+
+  // integrate gravity
+  body->gas_force = gameState.gas_force;
+
+  for (int g = 0; g < body->num_points; g++) {
+    Point *p = &body->points[g];
+    p->velocity += gameState.gravity * dt;
+    p->position += p->velocity * dt;
+  }
+
+  //check collision
+  for (int point_idx = 0; point_idx < body->num_points; point_idx++) {
+    check_border_collisions(&body->points[point_idx], dt, 0.5);
+  }
+
+  // satisfy contraints
+
+  for (int rd_idx = 0; rd_idx < body->num_points; rd_idx++) {
+    int next_idx = (rd_idx + 1) % body->num_points;
+    float rd = body->rest_distance[rd_idx];
+
+    Point *a = &body->points[rd_idx];
+    Point *b = &body->points[next_idx];
+
+    v2 delta = b->position - a->position;
+    float distance = cf_len(delta);
+    v2 direction = cf_safe_norm(delta);
+
+    v2 required_delta = delta * (rd / distance);
+    v2 force = (required_delta - delta) * body->spring_force;
+
+    // spring force
+    a->velocity -= force * dt;
+    b->velocity += force * dt;
+
+    float vrel = dot(b->velocity - a->velocity, direction);
+    float damping_factor = exp(- gameState.spring_damping * dt);
+    float new_vrel = vrel * damping_factor;
+    float vrel_delta = new_vrel - vrel;
+
+    // damping
+    a->velocity -= direction * (vrel_delta / 2.0);
+    b->velocity += direction * (vrel_delta / 2.0);
+  }
+
+  //apply gas force
+  float volume = get_volume(*body);
+
+  for (int j = 0; j < body->num_points; j++) {
+    Point *p0 = &body->points[j];
+    Point *p1 = &body->points[(j + 1) % body->num_points];
+
+    float x0 = p0->position.x;
+    float y0 = p0->position.y;
+    float x1 = p1->position.x;
+    float y1 = p1->position.y;
+
+    float r12d = sqrt(
+      (x0 - x1) * (x0 - x1) +
+      (y0 - y1) * (y0 - y1)
+    );
+
+    float pressurev = r12d * body->gas_force * (1.0f / volume);
+    v2 normal = calculateNormal(p1->position, p0->position);
+
+    p0->velocity += normal * pressurev;
+    p1->velocity += normal * pressurev;
+  }
+
+  // apply springs
+  for (int springIndex = 0; springIndex < body->springs.size(); springIndex++) {
+    Spring s = body->springs[springIndex];
+    Point* c = &body->points[s.indexA];
+    Point* d = &body->points[s.indexB];
+
+    v2 delta = d->position - c->position;
+    float distance = cf_len(delta);
+    v2 direction = cf_safe_norm(delta);
+
+    v2 required_delta = delta * (s.rest_distance / distance);
+    v2 force = (required_delta - delta) * s.spring_force;
+
+    // spring force
+    c->velocity -= force * dt;
+    d->velocity += force * dt;
+
+    float vrel = dot(d->velocity - c->velocity, direction);
+    float damping_factor = exp(-gameState.spring_damping * dt);
+    float new_vrel = vrel * damping_factor;
+    float vrel_delta = new_vrel - vrel;
+
+    // damping
+    c->velocity -= direction * (vrel_delta / 2.0);
+    d->velocity += direction * (vrel_delta / 2.0);
+  }
+
+  // TODO: Fix this :((((
+  /* v2 axel = calculateWheelAxel(*body);
+
+  for (int i = 0; i < body->num_points; i++) { 
+    Point *p = &body->points[i];
+    v2 toPt = p->position - axel; 
+    toPt = rotate(toPt, NEG_PI_OVER_ONE_POINT_TWO);
+    
+    p->velocity += toPt; 
+  }  */
+}
+
+void update_car(Car *car, float dt) {
 
   SoftBody *car_body = car->car_body;
-  GasFilledSoftBody *back_wheel = car->wheels[0];
-  GasFilledSoftBody *front_wheel = car->wheels[1];
+  PressureBody *back_wheel = car->wheels[0];
+  PressureBody *front_wheel = car->wheels[1];
 
   // weights and points for avg
   int back_axl_idx[4] = {10, 11, 0, 1};
@@ -882,9 +898,10 @@ void updateCar(Car *car, float dt) {
   // axls
   v2 car_back_axl = calculateWeightedAverage(car_body, back_axl_idx, weights, 4);
   v2 car_front_axl = calculateWeightedAverage(car_body, front_axl_idx, weights, 4);
-  v2 back_wheel_axl = calculateWheelAxel(back_wheel);
-  v2 front_wheel_axl = calculateWheelAxel(front_wheel);
+  v2 back_wheel_axl = calculateWheelAxel(*back_wheel);
+  v2 front_wheel_axl = calculateWheelAxel(*front_wheel);
 
+  // debug
   gameState.axls[0] = car_back_axl;
   gameState.axls[1] = car_front_axl;
   gameState.axls[2] = back_wheel_axl;
@@ -918,11 +935,19 @@ void updateCar(Car *car, float dt) {
     p0->position += front_delta / 2.0f;
     p0->velocity += (p0->position - p0->prev_position) / dt;
   }
+
+  // TODO make this cleaner
+  for (int i = 0; i < front_wheel->num_points; i++) {
+    Point *p0 = &front_wheel->points[i];
+    Point *p1 = &back_wheel->points[i];
+    p0->prev_position = p0->position; 
+    p1->prev_position = p1->position; 
+  }
 }
 
 void calcEnergy() {
 
-  SoftBody *car_body = &gameState.bodies[0];
+  SoftBody *car_body = gameState.bodies[0];
 
   float energy = 0;
   for (int i = 0; i < car_body->num_points; i++) {
@@ -933,8 +958,8 @@ void calcEnergy() {
   energy /= car_body->num_points;
   gameState.debug_energyCar = energy;
 
-  GasFilledSoftBody *back_wheel = &gameState.gas_bodies[0];
-  GasFilledSoftBody *front_wheel = &gameState.gas_bodies[1];
+  PressureBody *back_wheel = gameState.p_bodies[0];
+  PressureBody *front_wheel = gameState.p_bodies[1];
 
   float energy_back = 0;
   float energy_front = 0;
@@ -952,27 +977,30 @@ void calcEnergy() {
 
 }
 
-int frames = 0;
 void update(float dt) {
-
-  // if (frames > 0) return;
+  
+  //deriveWheelAngle(dt);
 
   checkInputs(dt);
 
-  updateSoftBodies(dt);
+  for (int i = 0; i < gameState.bodies.size(); i++) {
+    SoftBody *body = gameState.bodies[i];
+    update_soft_body(body, dt);
+  }
 
-  updateGasFilledSoftBodies(dt);
+  for (int i = 0; i < gameState.p_bodies.size(); i++) {
+    PressureBody *body = gameState.p_bodies[i];
+    update_pressure_body(body, dt);
+  }
 
-  updateCar(&gameState.car, dt);
+  update_car(&gameState.car, dt);
   //
   calcEnergy();
-
-  frames++;
 }
 
-void drawSoftBody(SoftBody *body) {
+void draw_soft_body(SoftBody *body) {
 
-  int n = sizeof(body->points) / sizeof(body->points[0]);
+  int n = body->num_points;
 
   for (int i = 0; i < body->num_points; i++) {
     v2 a = body->points[i].position;
@@ -1009,14 +1037,14 @@ void drawSoftBody(SoftBody *body) {
 
   draw_pop_color();
 
-  v2 com = calcSoftBodyCenterOfMass(body->points, body->num_points);
-  float angle = calcSoftBodyRotationAngle(body, com);
+  v2 com = calc_soft_body_center_of_mass(body->points.data(), body->num_points);
+  float angle = calc_soft_body_rotation_angle(body, com);
 
   if (gameState.debug_drawTargetShape) {
     draw_push_color(cf_color_green());
     for (int i = 0; i < body->num_points; i++) {
       SinCos rotation = sincos(angle);
-      v2 rotatedAnchor = mul(rotation, body->anchorVertex[i]);
+      v2 rotatedAnchor = mul(rotation, body->anchor_vertex[i]);
       v2 targetVertex = com + rotatedAnchor;
 
       cf_draw_circle2(targetVertex, RADIUS, 1.0f);
@@ -1039,7 +1067,7 @@ void drawSoftBody(SoftBody *body) {
   draw_pop_color();
 }
 
-void drawGasFilledSoftBody(GasFilledSoftBody *body) {
+void drawPressureBody(PressureBody *body) {
 
   // draw lines
   int n = body->num_points;
@@ -1072,12 +1100,12 @@ void main_loop(void *udata) {
   update(CF_DELTA_TIME_FIXED);
 }
 
-void initScene() {
+void init_scene() {
   gameState.num_bodies = 1;
-  gameState.bodies[0] = makeCarBody(cf_v2(0, -150));
+  gameState.bodies.push_back(new SoftBody(MakeCarBody(cf_v2(0, -150))));
   gameState.num_gas_bodies = 2;
-  gameState.gas_bodies[0] = makeGasFilledSoftBody(cf_v2(-20, -150), 300.0);
-  gameState.gas_bodies[1] = makeGasFilledSoftBody(cf_v2(20, -150), 300.0);
+  gameState.p_bodies.push_back(new PressureBody(MakePressureBody(cf_v2(-20, -150), 300.0, 12)));
+  gameState.p_bodies.push_back(new PressureBody(MakePressureBody(cf_v2(20, -150), 300.0, 12)));
   gameState.k_springForce = 100.f;
   gameState.spring_damping = 10.f;
   gameState.gas_force = 300.f;
@@ -1087,9 +1115,10 @@ void initScene() {
   gameState.last_mousedown = V2(0.0, 0.0);
 
   gameState.car = {};
-  gameState.car.car_body = &gameState.bodies[0];
-  gameState.car.wheels[0] = &gameState.gas_bodies[0];
-  gameState.car.wheels[1] = &gameState.gas_bodies[1];
+  gameState.car.car_body = gameState.bodies[0];
+  gameState.car.wheels[0] = gameState.p_bodies[0];
+  gameState.car.wheels[1] = gameState.p_bodies[1];
+
 }
 
 int main(int argc, char *argv[]) {
@@ -1102,7 +1131,7 @@ int main(int argc, char *argv[]) {
   cf_app_init_imgui(false);
   cf_set_fixed_timestep(60);
 
-  initScene();
+  init_scene();
 
   CF_ASSERT(gameState.k_springForce * CF_DELTA_TIME_FIXED *
                 CF_DELTA_TIME_FIXED <
@@ -1111,13 +1140,13 @@ int main(int argc, char *argv[]) {
     app_update(&main_loop);
     // All your game logic and updates go here...
     for (int i = 0; i < gameState.num_bodies; i++) {
-      SoftBody *body = &gameState.bodies[i];
-      drawSoftBody(body);
+      SoftBody *body = gameState.bodies[i];
+      draw_soft_body(body);
     }
 
     for (int i = 0; i < gameState.num_gas_bodies; i++) {
-      GasFilledSoftBody *body = &gameState.gas_bodies[i];
-      drawGasFilledSoftBody(body);
+      PressureBody *body = gameState.p_bodies[i];
+      drawPressureBody(body);
     }
 
     drawImgui(&gameState);

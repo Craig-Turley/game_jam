@@ -15,12 +15,13 @@ void drawImgui(GameState *state)
     ImGui::Checkbox("draw target shape", &state->debug_drawTargetShape);
     ImGui::Checkbox("draw center of mass", &state->debug_drawCenterOfMass);
     ImGui::Checkbox("draw bounding box", &state->debug_drawBoundingBox);
+    if(ImGui::Button("add body", ImVec2(80,20))) {
+      addSoftBody();       
+    };
     if(ImGui::Button("game over", ImVec2(80,20))) {
       state->game_over = true;
     };
 		char area[5];
-		std::sprintf(area, "area");
-		ImGui::LabelText(area, "%.3f", state->gas_bodies[0].volume);
 		char energy_body[13];
 		std::sprintf(energy_body, "energy_body");
 		ImGui::LabelText(energy_body, "%.3f", state->debug_energyCar);

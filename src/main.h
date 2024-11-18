@@ -7,14 +7,13 @@ const float RADIUS = 1.0f;
 const float SCREEN_WIDTH = 640.f;
 const float SCREEN_HEIGHT = 480.f;
 const float INF = std::numeric_limits<float>::infinity();
+const Cute::v2 V2ZERO = cf_v2(0, 0);
 
 struct Point {
 	Cute::v2 position;
 	Cute::v2 velocity;
   Cute::v2 prev_position;
-  Cute::v2 target_point;
   float mass;
-  float last_damping;
 };
 
 struct BoundingBox {
@@ -35,37 +34,38 @@ Spring(int idxA, int idxB, float restDist, float springForce)
 };
 
 struct SoftBody {
-	Cute::v2 anchorVertex[12];
+	std::vector<Cute::v2> anchor_vertex; 
+	std::vector<Point> points;
   Cute::v2 com;
-	Point points[12];
   int num_points;
   BoundingBox bounding_box;
   bool clicked;
   std::vector<Spring> springs;
 };
 
-struct GasFilledSoftBody {
-  Point points[12];
-  float restDistances[12];
+struct PressureBody {
+  std::vector<Point> points;
+  std::vector<float> rest_distance;
   int num_points;
   std::vector<Spring> springs;
-  float gasForce;
+  float rotational_velocity;
+  float gas_force;
 	float spring_force;
 	float damping_factor;
   float volume;
+  float previous_angle;
 };
 
 struct Car {
   SoftBody *car_body;
-  GasFilledSoftBody *wheels[2];
+  PressureBody *wheels[2];
   int back_axl_idx[4];
   int front_axl_idx[4];
 };
 
-struct GameState
-{
-	SoftBody bodies[2];
-  GasFilledSoftBody gas_bodies[2];
+struct GameState {
+  std::vector<SoftBody*> bodies;
+  std::vector<PressureBody*> p_bodies;
   Car car;
 	float k_springForce;
 	float spring_damping;
@@ -81,7 +81,6 @@ struct GameState
   bool paused;
   bool game_over;
   bool nextstep;
-  Cute::v2 axls[4]; //debug purposes`
   float debug_energyCar;
   float debug_energyBackWheel;
   float debug_energyFrontWheel;
@@ -105,9 +104,10 @@ struct ClosestPoint {
   Point *d;
 };
 
-float calcSoftBodyRotationAngle(SoftBody *body, Cute::v2 centerOfMass);
+float calc_soft_body_rotation_angle(SoftBody *body, Cute::v2 centerOfMass);
 void initScene();
 SoftBodyCollision detectCollision(Cute::v2 a, Cute::v2 b, SoftBody *body, int num_points);
 void checkBodyCollision(SoftBody *body1, SoftBody *body2, int len1, int len2, float dt);
 Cute::v2 findOutsidePoint(SoftBody *body, int num_points, Cute::v2 com);
 Cute::v2 calcSoftBodyCenterOfMass(Point *points, int size);
+void addSoftBody();
