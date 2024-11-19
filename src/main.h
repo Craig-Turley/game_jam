@@ -3,6 +3,8 @@
 #include <cute.h>
 #include <vector>
 
+const float TWO_PI = M_PI * 2;
+const float NEG_PI_OVER_ONE_POINT_TWO = (- M_PI) / 1.2f;
 const float RADIUS = 1.0f;
 const float SCREEN_WIDTH = 640.f;
 const float SCREEN_HEIGHT = 480.f;
@@ -46,8 +48,9 @@ struct SoftBody {
 struct PressureBody {
   std::vector<Point> points;
   std::vector<float> rest_distance;
-  int num_points;
   std::vector<Spring> springs;
+  int num_points;
+  float torque;
   float rotational_velocity;
   float gas_force;
 	float spring_force;
@@ -81,6 +84,7 @@ struct GameState {
   bool paused;
   bool game_over;
   bool nextstep;
+  Cute::v2 axls[4]; //debug purposes`
   float debug_energyCar;
   float debug_energyBackWheel;
   float debug_energyFrontWheel;

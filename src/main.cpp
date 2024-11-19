@@ -549,7 +549,11 @@ void checkMouseDown(float dt) {
   }
 }
 
-const float NEG_PI_OVER_ONE_POINT_TWO = (- M_PI) / 1.2f;
+void set_car_torque(float t) {
+  Car *car = &gameState.car;
+  car->wheels[0]->torque = t;
+  car->wheels[1]->torque = t;
+}
 
 float absf(float x) {
   if (x > 0.f) { return x; }
@@ -557,35 +561,10 @@ float absf(float x) {
 }
 
 void checkInputs(float dt) {
-  const float acceleration = 10.f;
-  const float maxOmega = 5.f;
- 
-
-  for (int i = 0; i < 2; i++) {
-    PressureBody *wheel = gameState.p_bodies[i];
-    v2 axel = calculateWheelAxel(*wheel);
-    float mDerivedOmega = 0.0;  
-
-    if (cf_key_down(CF_KEY_A)) {
-      // spin left
-      mDerivedOmega -= 1.f;
-
-      if (mDerivedOmega < - maxOmega) {
-        mDerivedOmega = - maxOmega;
-      }
-    } else if (cf_key_down(CF_KEY_D)) {
-      // spin right
-      mDerivedOmega += 1.f;
-
-      if (mDerivedOmega > maxOmega) {
-        mDerivedOmega = maxOmega;
-      }
-     } //else if (!cf_key_down(CF_KEY_A) && !cf_key_down(CF_KEY_D)) {
-    //   // damp the force
-    //   mDerivedOmega *= 0.97f;
-    // }
- 
-    float omegaFactor = (absf(((mDerivedOmega > 0) ? maxOmega : -maxOmega) - mDerivedOmega) / maxOmega);   
+  if (cf_key_down(CF_KEY_A)) {
+    set_car_torque(1.f);
+  } else if (cf_key_down(CF_KEY_D)) {
+    set_car_torque(-1.f); 
   }
 }
 
@@ -764,15 +743,71 @@ v2 calculateNormal(v2 a, v2 b) {
   return cf_v2(- delta.y, delta.x);
 }
 
-void deriveWheelAngle(float dt) {
-  float angle = 0.f;
-  for (int i = 0; i < gameState.num_gas_bodies; i++) {
-    PressureBody *wheel = gameState.p_bodies[i]; 
-    v2 center = calculateWheelAxel(*wheel); 
-    
-    
-  }
+float clampf(float min, float max, float val) {
+  if (val < min) { return min; } 
+  if (val > max) { return max; } 
+  
+  return val;
 }
+
+inline v2 get_perpindicular(v2 a) {
+  return cf_v2(-a.y, a.x);
+}
+
+static inline bool is_ccw( const v2 A, const v2 B ){
+  v2 perp = get_perpindicular(A);
+  float dot = cf_dot(perp, B);
+  return (dot >= 0.0f);
+}
+
+float derive_wheel_omega(PressureBody *wheel, float dt) {
+  float angle = 0.f;
+  int original_sign = 1;
+  float original_angle = 0.f;
+  for (int i = 0; i < wheel->points.size(); i++) {
+    Point p = wheel->points[i];
+    
+    v2 prev_norm = cf_norm(p.prev_position);
+    v2 cur_norm = cf_norm(p.position);
+
+    float dot = clampf(-1.f, 1.f, cf_dot(prev_norm, cur_norm));
+    
+    float cur_angle = (float)acos(dot);
+    if (!is_ccw(prev_norm, cur_norm)) { cur_angle = -cur_angle; }
+
+    if (i == 0) {
+      original_sign = cur_angle >= 0.f ? cur_angle : -cur_angle;
+      original_angle = cur_angle;
+    } else {
+      float diff = (cur_angle - original_angle);
+      int cur_sign = cur_angle >= 0.0f ? 1 : -1;
+
+      if ((absf(diff) > M_PI) && (cur_sign != original_sign)) {
+        cur_angle = (cur_sign == -1) ? (M_PI + M_PI + cur_angle) : ((M_PI - cur_angle) - M_PI);
+      }
+    }
+
+    angle += cur_angle;
+  }
+
+  angle /= wheel->points.size();
+  float delta_angle = angle - wheel->previous_angle;
+  if (absf(delta_angle) > M_PI) {
+
+			if (delta_angle < 0.0f)
+				delta_angle = delta_angle + TWO_PI;
+			else
+				delta_angle = delta_angle - TWO_PI;
+		
+  }
+
+  float omega = delta_angle / dt;
+  wheel->previous_angle = angle;
+
+  return omega;
+}
+
+float max_omega = 5.f;
 
 void update_pressure_body(PressureBody *body, float dt) {
 
@@ -871,16 +906,19 @@ void update_pressure_body(PressureBody *body, float dt) {
     d->velocity += direction * (vrel_delta / 2.0);
   }
 
-  // TODO: Fix this :((((
-  /* v2 axel = calculateWheelAxel(*body);
+  float derived_omega = derive_wheel_omega(body, dt);
+  float omega_factor = (absf(((derived_omega > 0.f ? max_omega : -max_omega) - derived_omega) / max_omega) * body->torque * 2.f);
 
+  // TODO figure this the fuck out
+  v2 axel = calculateWheelAxel(*body);
   for (int i = 0; i < body->num_points; i++) { 
     Point *p = &body->points[i];
+
     v2 toPt = p->position - axel; 
     toPt = rotate(toPt, NEG_PI_OVER_ONE_POINT_TWO);
     
-    p->velocity += toPt; 
-  }  */
+    p->velocity += toPt * omega_factor; 
+  }  
 }
 
 void update_car(Car *car, float dt) {
@@ -945,7 +983,7 @@ void update_car(Car *car, float dt) {
   }
 }
 
-void calcEnergy() {
+void calc_energy() {
 
   SoftBody *car_body = gameState.bodies[0];
 
@@ -995,7 +1033,7 @@ void update(float dt) {
 
   update_car(&gameState.car, dt);
   //
-  calcEnergy();
+  calc_energy();
 }
 
 void draw_soft_body(SoftBody *body) {
