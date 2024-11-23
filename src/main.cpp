@@ -1,5 +1,4 @@
 #include "main.h"
-#include "SDL_test_fuzzer.h"
 #include "cute_app.h"
 #include "cute_color.h"
 #include "cute_draw.h"
@@ -205,12 +204,17 @@ PressureBody MakePressureBody(v2 center, float gas_force, int num_points) {
     body.springs.emplace_back(sIdx, nextIdx, cf_len(body.points[nextIdx].position - body.points[sIdx].position), 25.f);
   }
 
-  // rest of points
+  // rest of data 
   body.gas_force = gas_force;
   body.num_points = num_points;
   body.spring_force = spring_force;
   body.damping_factor = 300.f;
   body.previous_angle = 0.f;
+
+  body.max_omega = 5.0f;
+  // used for when we need to divide by amount of points
+  // makes it a little faster and less intense
+  body.inv_np = 1.f / (float)num_points;
 
   return body;
 
@@ -560,11 +564,13 @@ float absf(float x) {
   return x * -1.f;
 }
 
-void checkInputs(float dt) {
+void check_inputs(float dt) {
   if (cf_key_down(CF_KEY_A)) {
-    set_car_torque(1.f);
+    set_car_torque(-1.f);
   } else if (cf_key_down(CF_KEY_D)) {
-    set_car_torque(-1.f); 
+    set_car_torque(1.f); 
+  } else {
+    set_car_torque(0);
   }
 }
 
@@ -754,7 +760,7 @@ inline v2 get_perpindicular(v2 a) {
   return cf_v2(-a.y, a.x);
 }
 
-static inline bool is_ccw( const v2 A, const v2 B ){
+inline bool is_ccw( const v2 A, const v2 B ){
   v2 perp = get_perpindicular(A);
   float dot = cf_dot(perp, B);
   return (dot >= 0.0f);
@@ -770,13 +776,15 @@ float derive_wheel_omega(PressureBody *wheel, float dt) {
     v2 prev_norm = cf_norm(p.prev_position);
     v2 cur_norm = cf_norm(p.position);
 
+    // clamp cus accuracy
     float dot = clampf(-1.f, 1.f, cf_dot(prev_norm, cur_norm));
     
     float cur_angle = (float)acos(dot);
-    if (!is_ccw(prev_norm, cur_norm)) { cur_angle = -cur_angle; }
+    // check if it counter clock wise to determine sign
+    if (!is_ccw(prev_norm, cur_norm)) { cur_angle = - cur_angle; }
 
     if (i == 0) {
-      original_sign = cur_angle >= 0.f ? cur_angle : -cur_angle;
+      original_sign = cur_angle >= 0.f ? 1 : -1;
       original_angle = cur_angle;
     } else {
       float diff = (cur_angle - original_angle);
@@ -790,9 +798,10 @@ float derive_wheel_omega(PressureBody *wheel, float dt) {
     angle += cur_angle;
   }
 
-  angle /= wheel->points.size();
+  angle *= wheel->inv_np;
+  
   float delta_angle = angle - wheel->previous_angle;
-  if (absf(delta_angle) > M_PI) {
+  if (absf(delta_angle) >= M_PI) {
 
 			if (delta_angle < 0.0f)
 				delta_angle = delta_angle + TWO_PI;
@@ -806,8 +815,6 @@ float derive_wheel_omega(PressureBody *wheel, float dt) {
 
   return omega;
 }
-
-float max_omega = 5.f;
 
 void update_pressure_body(PressureBody *body, float dt) {
 
@@ -906,8 +913,19 @@ void update_pressure_body(PressureBody *body, float dt) {
     d->velocity += direction * (vrel_delta / 2.0);
   }
 
+  // This shit broken as hell
+  // Okay maybe not broken as hell. Just need to figure out why the ratio isn't hitting 0
+  // Two above messages were a day apart and I can indeed confirm it's broken as hell
+  // ts returning a ratio of over 100% LMAOOOOOOOOO
+  // ^^ probably just a byprodct of unrealistic forces. would happen if the following was true:
+  // -- pos - prev_pos > FOUR_PI 
+  // -- since
+  // -- pos - prev_pos - TWO_PI > TWO_PI
+  // oh yeah, fiziks :D
   float derived_omega = derive_wheel_omega(body, dt);
-  float omega_factor = (absf(((derived_omega > 0.f ? max_omega : -max_omega) - derived_omega) / max_omega) * body->torque * 2.f);
+  std::cout << absf(((derived_omega > 0) ? body->max_omega : -body->max_omega) - derived_omega) / body->max_omega << std::endl;
+	std::cout << derived_omega << std::endl;
+  float omega_factor = (absf(((derived_omega > 0) ? body->max_omega : -body->max_omega) - derived_omega) / body->max_omega) * body->torque;
 
   // TODO figure this the fuck out
   v2 axel = calculateWheelAxel(*body);
@@ -1019,7 +1037,7 @@ void update(float dt) {
   
   //deriveWheelAngle(dt);
 
-  checkInputs(dt);
+  check_inputs(dt);
 
   for (int i = 0; i < gameState.bodies.size(); i++) {
     SoftBody *body = gameState.bodies[i];

@@ -37,12 +37,12 @@ Spring(int idxA, int idxB, float restDist, float springForce)
 
 struct SoftBody {
 	std::vector<Cute::v2> anchor_vertex; 
-	std::vector<Point> points;
-  Cute::v2 com;
-  int num_points;
-  BoundingBox bounding_box;
-  bool clicked;
+  std::vector<Point> points;
   std::vector<Spring> springs;
+  Cute::v2 com;
+  BoundingBox bounding_box;
+  int num_points;
+  bool clicked;
 };
 
 struct PressureBody {
@@ -50,6 +50,8 @@ struct PressureBody {
   std::vector<float> rest_distance;
   std::vector<Spring> springs;
   int num_points;
+  float inv_np;
+  float max_omega;
   float torque;
   float rotational_velocity;
   float gas_force;
